@@ -134,7 +134,7 @@ endif;
 
 		<?php wp_nonce_field( 'groups_invite_uninvite_user', '_wpnonce_invite_uninvite_user' ); ?>
 
-		<?php if ( ! invite_anyone_is_large_network( 'users' ) ) : ?>
+		<?php if ( ! invite_anyone_is_large_network() ) : ?>
 			<p><?php esc_html_e( 'Select members from the directory:', 'invite-anyone' ); ?></p>
 
 			<div id="invite-anyone-member-list">
