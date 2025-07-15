@@ -4,6 +4,12 @@ require BP_INVITE_ANYONE_DIR . 'by-email/by-email-db.php';
 require BP_INVITE_ANYONE_DIR . 'widgets/widgets.php';
 require BP_INVITE_ANYONE_DIR . 'by-email/cloudsponge-integration.php';
 
+// Include the REST controller class.
+require_once BP_INVITE_ANYONE_DIR . 'by-email/class-invite-anyone-rest-controller.php';
+
+// Initialize the REST controller - it will register itself.
+new Invite_Anyone_REST_Controller();
+
 // Temporary function until bp_is_active is fully integrated
 function invite_anyone_are_groups_running() {
 	if ( function_exists( 'groups_install' ) ) {
