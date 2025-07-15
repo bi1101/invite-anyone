@@ -169,8 +169,8 @@ class Invite_Anyone_REST_Controller extends WP_REST_Controller {
 			);
 		}
 
-		// Users can only see their own invitations unless they're an admin.
-		if ( ! current_user_can( 'manage_options' ) && ! isset( $request['inviter_id'] ) ) {
+		// Users can only see their own invitations unless they have admin permissions for invitations.
+		if ( ! current_user_can( 'edit_others_ia_invitations' ) && ! isset( $request['inviter_id'] ) ) {
 			$request['inviter_id'] = get_current_user_id();
 		}
 
@@ -273,7 +273,7 @@ class Invite_Anyone_REST_Controller extends WP_REST_Controller {
 		}
 
 		// Check if user can view this invitation.
-		if ( ! current_user_can( 'manage_options' ) && (int) $post->post_author !== get_current_user_id() ) {
+		if ( ! current_user_can( 'edit_others_ia_invitations' ) && (int) $post->post_author !== get_current_user_id() ) {
 			return new WP_Error(
 				'rest_forbidden',
 				__( 'Sorry, you are not allowed to view this invitation.', 'invite-anyone' ),
@@ -327,7 +327,7 @@ class Invite_Anyone_REST_Controller extends WP_REST_Controller {
 		}
 
 		// Check if user has the capability to send invitations.
-		if ( ! current_user_can( 'edit_posts' ) ) {
+		if ( ! current_user_can( 'edit_ia_invitations' ) ) {
 			return new WP_Error(
 				'rest_forbidden',
 				__( 'Sorry, you are not allowed to create invitations.', 'invite-anyone' ),
@@ -425,7 +425,7 @@ class Invite_Anyone_REST_Controller extends WP_REST_Controller {
 		}
 
 		$post = get_post( $request['id'] );
-		if ( ! current_user_can( 'manage_options' ) && (int) $post->post_author !== get_current_user_id() ) {
+		if ( ! current_user_can( 'edit_others_ia_invitations' ) && (int) $post->post_author !== get_current_user_id() ) {
 			return new WP_Error(
 				'rest_forbidden',
 				__( 'Sorry, you are not allowed to update this invitation.', 'invite-anyone' ),
