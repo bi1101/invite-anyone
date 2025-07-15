@@ -10,7 +10,16 @@ require_once BP_INVITE_ANYONE_DIR . 'by-email/class-invite-anyone-rest-controlle
 // Initialize the REST controller - it will register itself.
 new Invite_Anyone_REST_Controller();
 
-// Temporary function until bp_is_active is fully integrated
+/**
+ * Checks if BuddyPress Groups component is active and available.
+ *
+ * This is a temporary function until bp_is_active is fully integrated.
+ * It checks for the existence of groups functionality in BuddyPress.
+ *
+ * @since 1.0.0
+ *
+ * @return bool True if groups are running, false otherwise.
+ */
 function invite_anyone_are_groups_running() {
 	if ( function_exists( 'groups_install' ) ) {
 		return true;
@@ -25,6 +34,19 @@ function invite_anyone_are_groups_running() {
 	return false;
 }
 
+/**
+ * Enqueues CSS styles for the Invite Anyone email functionality.
+ *
+ * This function adds the necessary CSS styles when viewing the Invite Anyone
+ * component pages. It checks if the current component matches the active
+ * BuddyPress component and enqueues the stylesheet accordingly.
+ *
+ * @since 1.0.0
+ *
+ * @global object $bp BuddyPress global object.
+ *
+ * @return void
+ */
 function invite_anyone_add_by_email_css() {
 	global $bp;
 
@@ -45,6 +67,19 @@ function invite_anyone_add_by_email_css() {
 }
 add_action( 'wp_print_styles', 'invite_anyone_add_by_email_css' );
 
+/**
+ * Enqueues JavaScript for the Invite Anyone email functionality.
+ *
+ * This function adds the necessary JavaScript when viewing the Invite Anyone
+ * component pages. It checks if the current component matches the Invite Anyone
+ * slug and enqueues the script with jQuery dependency.
+ *
+ * @since 1.0.0
+ *
+ * @global object $bp BuddyPress global object.
+ *
+ * @return void
+ */
 function invite_anyone_add_by_email_js() {
 	global $bp;
 
@@ -66,6 +101,20 @@ function invite_anyone_add_by_email_js() {
 }
 add_action( 'wp_print_scripts', 'invite_anyone_add_by_email_js' );
 
+/**
+ * Sets up global variables and configuration for the Invite Anyone component.
+ *
+ * This function initializes the Invite Anyone component's global variables,
+ * including the database table name and component slug. It also registers
+ * the component in BuddyPress's active components array.
+ *
+ * @since 1.0.0
+ *
+ * @global object $bp   BuddyPress global object.
+ * @global object $wpdb WordPress database object.
+ *
+ * @return void
+ */
 function invite_anyone_setup_globals() {
 	global $bp, $wpdb;
 
@@ -84,6 +133,19 @@ function invite_anyone_setup_globals() {
 add_action( 'bp_setup_globals', 'invite_anyone_setup_globals', 2 );
 
 
+/**
+ * Displays the opt-out screen for invitation emails.
+ *
+ * This function handles the display and processing of the opt-out screen
+ * where users can choose to stop receiving invitation emails from the site.
+ * It also provides an "oops" option to accept invitations instead.
+ *
+ * @since 1.0.0
+ *
+ * @global object $bp BuddyPress global object.
+ *
+ * @return void
+ */
 function invite_anyone_opt_out_screen() {
 	global $bp;
 
@@ -183,6 +245,20 @@ function invite_anyone_opt_out_screen() {
 add_action( 'wp', 'invite_anyone_opt_out_screen', 1 );
 
 
+/**
+ * Displays a welcome message on the registration screen for invited users.
+ *
+ * This function shows a personalized welcome message to users who are
+ * accepting email invitations. It displays the names of the users who
+ * sent the invitations and pre-fills the email field with the invited
+ * user's email address.
+ *
+ * @since 1.0.0
+ *
+ * @global object $bp BuddyPress global object.
+ *
+ * @return void
+ */
 function invite_anyone_register_screen_message() {
 	global $bp;
 
@@ -257,6 +333,21 @@ function invite_anyone_register_screen_message() {
 }
 add_action( 'bp_before_register_page', 'invite_anyone_register_screen_message' );
 
+/**
+ * Processes user activation after successful registration.
+ *
+ * This function handles the activation of users who were invited via email.
+ * It processes friend requests, follows, and group memberships for the
+ * newly activated user based on the invitations they received.
+ *
+ * @since 1.0.0
+ *
+ * @global object $bp BuddyPress global object.
+ *
+ * @param int $user_id The ID of the user being activated.
+ *
+ * @return void
+ */
 function invite_anyone_activate_user( $user_id ) {
 	global $bp;
 
@@ -341,6 +432,19 @@ add_action(
 	10
 );
 
+/**
+ * Sets up navigation items for the Invite Anyone component.
+ *
+ * This function adds navigation items to the user profile, including
+ * "Send Invites" as a main navigation item and "Invite New Members"
+ * and "Sent Invites" as sub-navigation items.
+ *
+ * @since 1.0.0
+ *
+ * @global object $bp BuddyPress global object.
+ *
+ * @return void
+ */
 function invite_anyone_setup_nav() {
 	global $bp;
 
@@ -480,9 +584,17 @@ function invite_anyone_access_test() {
 add_action( 'wp_head', 'invite_anyone_access_test' );
 
 /**
- * Catch and process email sends.
+ * Catches and processes email invitation sends.
+ *
+ * This function handles the submission of the invitation form from the
+ * 'Send Invites' screen. It validates the form data, processes the
+ * invitations, and redirects to the appropriate page.
  *
  * @since 1.1.0
+ *
+ * @global object $bp BuddyPress global object.
+ *
+ * @return void
  */
 function invite_anyone_catch_send() {
 	global $bp;
@@ -520,6 +632,19 @@ function invite_anyone_catch_send() {
 }
 add_action( 'bp_actions', 'invite_anyone_catch_send' );
 
+/**
+ * Catches and processes clearing of sent invitations.
+ *
+ * This function handles the clearing of individual or bulk sent invitations
+ * from the 'Sent Invites' screen. It also manages returned data from cookies
+ * that contains error messages and form data.
+ *
+ * @since 1.0.0
+ *
+ * @global object $bp BuddyPress global object.
+ *
+ * @return void
+ */
 function invite_anyone_catch_clear() {
 	global $bp;
 
@@ -583,6 +708,17 @@ function invite_anyone_catch_clear() {
 }
 add_action( 'bp_template_redirect', 'invite_anyone_catch_clear', 5 );
 
+/**
+ * Main screen function for the "Invite New Members" page.
+ *
+ * This function sets up the screen for the "Invite New Members" page,
+ * loads the appropriate template, and registers the content function
+ * to display the invitation form.
+ *
+ * @since 1.0.0
+ *
+ * @return void
+ */
 function invite_anyone_screen_one() {
 	/* Add a do action here, so your component can be extended by others. */
 	do_action( 'invite_anyone_screen_one' );
@@ -596,6 +732,19 @@ function invite_anyone_screen_one() {
 	bp_core_load_template( apply_filters( 'bp_core_template_plugin', 'members/single/plugins' ) );
 }
 
+/**
+ * Generates the content for the "Invite New Members" screen.
+ *
+ * This function renders the invitation form that allows users to send
+ * email invitations to new members. It handles error messages, form
+ * validation, and displays the appropriate fields based on plugin settings.
+ *
+ * @since 1.0.0
+ *
+ * @global object $bp BuddyPress global object.
+ *
+ * @return void
+ */
 function invite_anyone_screen_one_content() {
 	global $bp;
 
@@ -855,8 +1004,17 @@ function invite_anyone_screen_one_content() {
 }
 
 /**
- * invite_anyone_screen_two()
+ * Main screen function for the "Sent Invites" page.
  *
+ * This function sets up the screen for the "Sent Invites" page,
+ * loads the appropriate template, and registers the content function
+ * to display the list of sent invitations.
+ *
+ * @since 1.0.0
+ *
+ * @global object $bp BuddyPress global object.
+ *
+ * @return void
  */
 function invite_anyone_screen_two() {
 	global $bp;
@@ -873,6 +1031,19 @@ function invite_anyone_screen_two() {
 	bp_core_load_template( apply_filters( 'bp_core_template_plugin', 'members/single/plugins' ) );
 }
 
+/**
+ * Generates the content for the "Sent Invites" screen.
+ *
+ * This function renders a table displaying all invitations sent by the
+ * current user, with options to sort and paginate the results. It also
+ * provides options to clear individual or bulk invitations.
+ *
+ * @since 1.0.0
+ *
+ * @global object $bp BuddyPress global object.
+ *
+ * @return void
+ */
 function invite_anyone_screen_two_content() {
 	global $bp;
 
@@ -1138,6 +1309,21 @@ function invite_anyone_get_user_sent_invites_url( $user_id ) {
 	);
 }
 
+/**
+ * Generates the default invitation subject line.
+ *
+ * This function returns the default subject line for invitation emails,
+ * which can be customized by the site administrator. It supports
+ * wildcard replacement for dynamic content.
+ *
+ * @since 1.0.0
+ *
+ * @global object $bp BuddyPress global object.
+ *
+ * @param string|false $returned_message Optional. Previously returned message for re-display.
+ *
+ * @return string The invitation subject line.
+ */
 function invite_anyone_invitation_subject( $returned_message = false ) {
 	global $bp;
 
@@ -1163,6 +1349,21 @@ function invite_anyone_invitation_subject( $returned_message = false ) {
 	return stripslashes( $text );
 }
 
+/**
+ * Generates the default invitation message content.
+ *
+ * This function returns the default message content for invitation emails,
+ * which can be customized by the site administrator. It supports
+ * wildcard replacement for dynamic content like inviter name and site URLs.
+ *
+ * @since 1.0.0
+ *
+ * @global object $bp BuddyPress global object.
+ *
+ * @param string|false $returned_message Optional. Previously returned message for re-display.
+ *
+ * @return string The invitation message content.
+ */
 function invite_anyone_invitation_message( $returned_message = false ) {
 	global $bp;
 
@@ -1197,6 +1398,17 @@ Visit %%INVITERNAME%%\'s profile at %%INVITERURL%%.',
 	return apply_filters( 'invite_anyone_get_invitation_message', stripslashes( $text ) );
 }
 
+/**
+ * Generates the footer content for invitation emails.
+ *
+ * This function returns the footer content that appears at the bottom
+ * of invitation emails, including links to accept invitations and
+ * opt-out options. It supports wildcard replacement for dynamic URLs.
+ *
+ * @since 1.0.0
+ *
+ * @return string The invitation email footer content.
+ */
 function invite_anyone_process_footer() {
 	$iaoptions = invite_anyone_options();
 
@@ -1271,6 +1483,22 @@ function invite_anyone_get_opt_out_url( $email ) {
 	return apply_filters( 'invite_anyone_opt_out_url', $opt_out_link, $email );
 }
 
+/**
+ * Replaces wildcard placeholders in invitation text with actual values.
+ *
+ * This function performs replacement of wildcard placeholders in invitation
+ * messages and subjects with actual values like inviter name, site name,
+ * and URLs for accepting invitations or opting out.
+ *
+ * @since 1.0.0
+ *
+ * @global object $bp BuddyPress global object.
+ *
+ * @param string      $text  The text containing wildcard placeholders.
+ * @param string|false $email Optional. The email address for URL generation.
+ *
+ * @return string The text with wildcards replaced with actual values.
+ */
 function invite_anyone_wildcard_replace( $text, $email = false ) {
 	global $bp;
 
@@ -1300,13 +1528,31 @@ function invite_anyone_wildcard_replace( $text, $email = false ) {
 }
 
 /**
- * Get the max allowed invites
+ * Gets the maximum number of allowed invitations per request.
+ *
+ * This function retrieves the maximum number of invitations that can be
+ * sent in a single request, as configured by the site administrator.
+ *
+ * @since 1.0.0
+ *
+ * @return int|false The maximum number of invitations allowed, or false if unlimited.
  */
 function invite_anyone_max_invites() {
 	$options = invite_anyone_options();
 	return isset( $options['max_invites'] ) ? intval( $options['max_invites'] ) : false;
 }
 
+/**
+ * Gets the allowed email domains for invitations.
+ *
+ * This function retrieves the list of email domains that are allowed
+ * for sending invitations on multisite installations. It formats the
+ * domains for display in the invitation form.
+ *
+ * @since 1.0.0
+ *
+ * @return string HTML-formatted list of allowed domains, or empty string if unlimited.
+ */
 function invite_anyone_allowed_domains() {
 
 	$domains = '';
@@ -1366,6 +1612,18 @@ function invite_anyone_get_invited_groups_tax_name() {
 	return $tax_name;
 }
 
+/**
+ * Formats a date string according to WordPress date format settings.
+ *
+ * This function takes a date string and formats it according to the
+ * site's configured date format setting, with internationalization support.
+ *
+ * @since 1.0.0
+ *
+ * @param string $date The date string to format.
+ *
+ * @return string The formatted date string.
+ */
 function invite_anyone_format_date( $date ) {
 	return date_i18n( get_option( 'date_format' ), strtotime( $date ) );
 }
@@ -1404,6 +1662,22 @@ function invite_anyone_parse_addresses( $address_string ) {
 	return apply_filters( 'invite_anyone_parse_addresses', $emails, $address_string );
 }
 
+/**
+ * Processes and sends invitation emails to the specified recipients.
+ *
+ * This function handles the complete process of sending invitation emails,
+ * including validation, email formatting, and recording the invitations
+ * in the database. It supports both BuddyPress email templates and
+ * standard WordPress email functionality.
+ *
+ * @since 1.0.0
+ *
+ * @global object $bp BuddyPress global object.
+ *
+ * @param array $data The form data containing invitation details.
+ *
+ * @return bool True on success, false on failure.
+ */
 function invite_anyone_process_invitations( $data ) {
 	global $bp;
 
@@ -1746,6 +2020,19 @@ function invite_anyone_is_accept_invitation_page() {
 	return apply_filters( 'invite_anyone_is_accept_invitation_page', $retval );
 }
 
+/**
+ * Bypasses WordPress registration restrictions for invited users.
+ *
+ * This function allows invited users to register even when user registration
+ * is disabled, provided they have a valid invitation. It temporarily enables
+ * registration for users accessing the accept-invitation page.
+ *
+ * @since 1.0.0
+ *
+ * @global object $bp BuddyPress global object.
+ *
+ * @return void
+ */
 function invite_anyone_bypass_registration_lock() {
 	global $bp;
 
@@ -1817,6 +2104,25 @@ function invite_anyone_check_invitation( $results ) {
 }
 add_filter( 'bp_core_validate_user_signup', 'invite_anyone_check_invitation' );
 
+/**
+ * Validates an email address for invitation eligibility.
+ *
+ * This function checks if an email address is valid and eligible for
+ * receiving invitations. It validates against various criteria including
+ * opt-out status, existing user accounts, safety checks, and domain restrictions.
+ *
+ * @since 1.0.0
+ *
+ * @param string $user_email The email address to validate.
+ *
+ * @return string Status of the email validation:
+ *                - 'okay': Email is valid and can receive invitations
+ *                - 'opt_out': Email has opted out of invitations
+ *                - 'used': Email is already registered
+ *                - 'unsafe': Email is marked as unsafe
+ *                - 'invalid': Email format is invalid
+ *                - 'limited_domain': Email domain is not allowed
+ */
 function invite_anyone_validate_email( $user_email ) {
 
 	$status = 'okay';
@@ -1904,12 +2210,18 @@ add_filter( 'bp_loggedin_register_page_redirect_to', 'invite_anyone_already_acce
 /** BP emails ****************************************************************/
 
 /**
- * Install Invite Anyone emails during email installation routine for BuddyPress.
+ * Installs email templates for Invite Anyone during BuddyPress email installation.
+ *
+ * This function creates the necessary email templates for invitation emails
+ * when BuddyPress email system is installed. It supports both HTML and
+ * plain text versions of the emails.
  *
  * @since 1.4.0
  *
- * @param bool $post_exists_check Should we check to see if our email post types exist before installing?
+ * @param bool $post_exists_check Whether to check if email post types exist before installing.
  *                                Default: false.
+ *
+ * @return void
  */
 function invite_anyone_install_emails( $post_exists_check = false ) {
 	// No need to check if our post types exist.
@@ -1965,15 +2277,19 @@ function invite_anyone_install_emails( $post_exists_check = false ) {
 add_action( 'bp_core_install_emails', 'invite_anyone_install_emails' );
 
 /**
- * Sets the email situation type for use in Invite Anyone.
+ * Creates and configures email templates for Invite Anyone functionality.
  *
- * Only applicable for BuddyPress 2.5+.
+ * This function sets up the email situation type for BuddyPress email system,
+ * creating the necessary email posts and taxonomy terms for invitation emails.
+ * It handles both HTML and plain text content for the emails.
  *
  * @since 1.4.0
  *
- * @param string $email_type The email type to fetch.
- * @param bool   $term_check Check if our email term exists before creating our specific email
- *                           situation. Default: true.
+ * @param string $email_type The type of email to create (e.g., 'invite-anyone-invitation').
+ * @param bool   $term_check Whether to check if the email term exists before creating.
+ *                           Default: true.
+ *
+ * @return void
  */
 function invite_anyone_set_email_type( $email_type, $term_check = true ) {
 	$switched = false;
