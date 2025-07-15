@@ -323,6 +323,18 @@ function invite_anyone_activate_user( $user_id ) {
 }
 add_action( 'bp_core_activated_user', 'invite_anyone_activate_user', 10 );
 
+// Also handle social logins that bypass activation.
+add_action(
+	'user_register',
+	function ( $user_id ) {
+		// Only run if the user is active (not pending activation).
+		if ( class_exists( 'BP_Signup' ) && 0 === BP_Signup::check_user_status( $user_id ) ) {
+			invite_anyone_activate_user( $user_id );
+		}
+	},
+	10
+);
+
 function invite_anyone_setup_nav() {
 	global $bp;
 
