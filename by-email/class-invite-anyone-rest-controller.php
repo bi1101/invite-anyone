@@ -146,6 +146,47 @@ class Invite_Anyone_REST_Controller extends WP_REST_Controller {
 				'schema' => array( $this, 'get_public_item_schema' ),
 			)
 		);
+
+		// Route for sending invitations.
+		register_rest_route(
+			$this->namespace,
+			'/' . $this->rest_base . '/send',
+			array(
+				array(
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => array( $this, 'send_item' ),
+					'permission_callback' => array( $this, 'send_item_permissions_check' ),
+					'args'                => array(
+						'emails'  => array(
+							'description' => __( 'An array of email addresses to send invitations to.', 'invite-anyone' ),
+							'type'        => 'array',
+							'items'       => array(
+								'type'   => 'string',
+								'format' => 'email',
+							),
+							'required'    => true,
+						),
+						'subject' => array(
+							'description' => __( 'The subject of the invitation email.', 'invite-anyone' ),
+							'type'        => 'string',
+							'required'    => true,
+						),
+						'message' => array(
+							'description' => __( 'The body of the invitation email.', 'invite-anyone' ),
+							'type'        => 'string',
+							'required'    => true,
+						),
+						'groups'  => array(
+							'description' => __( 'An array of group IDs to invite the user to.', 'invite-anyone' ),
+							'type'        => 'array',
+							'items'       => array(
+								'type' => 'integer',
+							),
+						),
+					),
+				),
+			)
+		);
 	}
 
 	/**
@@ -571,6 +612,277 @@ class Invite_Anyone_REST_Controller extends WP_REST_Controller {
 		}
 
 		return rest_ensure_response( array( 'success' => true ) );
+	}
+
+	/**
+	 * Checks if a given request has access to send an invitation.
+	 *
+	 * This function ensures that only logged-in users with the appropriate
+	 * permissions can send new invitations.
+	 *
+	 * @since 1.5.0
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return true|WP_Error True if the request has access to send invitations, WP_Error object otherwise.
+	 */
+	public function send_item_permissions_check( $request ) {
+		if ( ! is_user_logged_in() ) {
+			return new WP_Error(
+				'rest_forbidden',
+				__( 'Sorry, you are not allowed to send invitations.', 'invite-anyone' ),
+				array( 'status' => 401 )
+			);
+		}
+
+		// Check if user has the capability to send invitations.
+		if ( ! current_user_can( 'edit_ia_invitations' ) ) {
+			return new WP_Error(
+				'rest_forbidden',
+				__( 'Sorry, you are not allowed to send invitations.', 'invite-anyone' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Sends one or more invitations.
+	 *
+	 * This method handles the creation of new invitations, including validating
+	 * the request data, checking against the max number of invites, validating
+	 * each email address, and sending the invitation emails. It integrates with
+	 * the core logic from invite_anyone_process_invitations.
+	 *
+	 * @since 1.5.0
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 */
+	public function send_item( $request ) {
+		$emails = $request->get_param( 'emails' );
+		if ( empty( $emails ) || ! is_array( $emails ) ) {
+			return new WP_Error(
+				'rest_invalid_param',
+				__( 'Invalid parameter: emails must be a non-empty array.', 'invite-anyone' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$subject = $request->get_param( 'subject' );
+		$message = $request->get_param( 'message' );
+		$groups  = $request->get_param( 'groups' ) ?? array();
+
+		if ( empty( $subject ) || empty( $message ) ) {
+			return new WP_Error(
+				'rest_invalid_param',
+				__( 'Invalid parameters: subject and message are required.', 'invite-anyone' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		// Get plugin options.
+		$options = invite_anyone_options();
+
+		// Check against the max number of invites.
+		$max_invites = ! empty( $options['max_invites'] ) ? $options['max_invites'] : 5;
+
+		if ( count( $emails ) > $max_invites ) {
+			return new WP_Error(
+				'rest_too_many_invites',
+				sprintf(
+					// translators: %s is the number of maximum invites
+					_n(
+						'You are only allowed to invite up to %s person at a time. Please remove some addresses and try again.',
+						'You are only allowed to invite up to %s people at a time. Please remove some addresses and try again.',
+						$max_invites,
+						'invite-anyone'
+					),
+					$max_invites
+				),
+				array( 'status' => 400 )
+			);
+		}
+
+		// Check total invitation limit if enabled.
+		$limit_total_invites = ! empty( $options['email_limit_invites_toggle'] ) && 'no' !== $options['email_limit_invites_toggle'];
+		if ( $limit_total_invites && ! current_user_can( 'delete_others_pages' ) ) {
+			$sent_invites            = invite_anyone_get_invitations_by_inviter_id( get_current_user_id() );
+			$sent_invites_count      = (int) $sent_invites->post_count;
+			$remaining_invites_count = (int) $options['limit_invites_per_user'] - $sent_invites_count;
+
+			if ( count( $emails ) > $remaining_invites_count ) {
+				return new WP_Error(
+					'rest_invite_limit_exceeded',
+					sprintf(
+						// translators: %s is the number of remaining invites
+						_n(
+							'You are only allowed to invite %s more person. Please remove some addresses and try again.',
+							'You are only allowed to invite %s more people. Please remove some addresses and try again.',
+							$remaining_invites_count,
+							'invite-anyone'
+						),
+						$remaining_invites_count
+					),
+					array( 'status' => 400 )
+				);
+			}
+		}
+
+		$results = array(
+			'sent'   => array(),
+			'failed' => array(),
+		);
+
+		$valid_emails = array();
+
+		// Validate email addresses.
+		foreach ( $emails as $email ) {
+			$check = invite_anyone_validate_email( $email );
+
+			switch ( $check ) {
+				case 'opt_out':
+					$results['failed'][] = array(
+						'email'  => $email,
+						'reason' => sprintf( __( '%s has opted out of email invitations from this site.', 'invite-anyone' ), $email ),
+					);
+					break;
+
+				case 'used':
+					$results['failed'][] = array(
+						'email'  => $email,
+						'reason' => sprintf( __( '%s is already a registered user of the site.', 'invite-anyone' ), $email ),
+					);
+					break;
+
+				case 'unsafe':
+					$results['failed'][] = array(
+						'email'  => $email,
+						'reason' => sprintf( __( '%s is not a permitted email address.', 'invite-anyone' ), $email ),
+					);
+					break;
+
+				case 'invalid':
+					$results['failed'][] = array(
+						'email'  => $email,
+						'reason' => sprintf( __( '%s is not a valid email address. Please make sure that you have typed it correctly.', 'invite-anyone' ), $email ),
+					);
+					break;
+
+				case 'limited_domain':
+					$results['failed'][] = array(
+						'email'  => $email,
+						'reason' => sprintf( __( '%s is not a permitted email address. Please make sure that you have typed the domain name correctly.', 'invite-anyone' ), $email ),
+					);
+					break;
+
+				case 'okay':
+					$valid_emails[] = $email;
+					break;
+
+				default:
+					$results['failed'][] = array(
+						'email'  => $email,
+						'reason' => sprintf( __( '%s failed validation for an unknown reason.', 'invite-anyone' ), $email ),
+					);
+					break;
+			}
+		}
+
+		// Send invitations to valid emails.
+		if ( ! empty( $valid_emails ) ) {
+			$do_bp_email = true === function_exists( 'bp_send_email' ) && true === ! apply_filters( 'bp_email_use_wp_mail', false );
+
+			foreach ( $valid_emails as $email ) {
+				// Prepare message and subject with wildcard replacement.
+				$processed_subject = invite_anyone_wildcard_replace( $subject, $email );
+				$processed_message = invite_anyone_wildcard_replace( $message, $email );
+
+				// Get URLs for tokens.
+				$accept_url  = invite_anyone_get_accept_url( $email );
+				$opt_out_url = invite_anyone_get_opt_out_url( $email );
+
+				// Add footer for non-BP email.
+				$footer                        = invite_anyone_process_footer();
+				$footer                        = invite_anyone_wildcard_replace( $footer, $email );
+				$processed_message_with_footer = $processed_message . "\n\n================\n" . $footer;
+
+				// Apply filters similar to invite_anyone_process_invitations.
+				$data = array(
+					'subject' => $processed_subject,
+					'message' => $processed_message,
+					'groups'  => $groups,
+					'email'   => $email,
+					'inviter' => get_current_user_id(),
+				);
+
+				$filtered_email   = apply_filters( 'invite_anyone_invitee_email', $email, $data );
+				$filtered_subject = apply_filters( 'invite_anyone_invitation_subject', $processed_subject, $data, $email );
+				$filtered_message = apply_filters( 'invite_anyone_invitation_message', $processed_message_with_footer, $data, $email );
+
+				// Send email.
+				if ( $do_bp_email ) {
+					$bp_email_args = array(
+						'tokens'  => array(
+							'ia.subject'           => $filtered_subject,
+							'ia.content'           => $processed_message,
+							'ia.content_plaintext' => $filtered_message,
+							'ia.accept_url'        => $accept_url,
+							'ia.opt_out_url'       => $opt_out_url,
+							'recipient.name'       => $filtered_email,
+						),
+						'subject' => $filtered_subject,
+						'content' => $filtered_message,
+					);
+
+					add_filter( 'bp_email_get_salutation', 'invite_anyone_replace_bp_email_salutation', 10, 2 );
+					$sent = bp_send_email( 'invite-anyone-invitation', $filtered_email, $bp_email_args );
+					remove_filter( 'bp_email_get_salutation', 'invite_anyone_replace_bp_email_salutation', 10 );
+				} else {
+					$sent = wp_mail( $filtered_email, $filtered_subject, $filtered_message );
+				}
+
+				if ( $sent ) {
+					// Record the invitation.
+					$invitation_id = invite_anyone_record_invitation(
+						get_current_user_id(),
+						$filtered_email,
+						$filtered_message,
+						$groups,
+						$filtered_subject,
+						false // is_cloudsponge
+					);
+
+					if ( $invitation_id ) {
+						$results['sent'][] = array(
+							'email'         => $filtered_email,
+							'invitation_id' => $invitation_id,
+						);
+
+						// Fire action hook.
+						do_action( 'sent_email_invite', get_current_user_id(), $filtered_email, $groups );
+					} else {
+						$results['failed'][] = array(
+							'email'  => $filtered_email,
+							'reason' => __( 'Failed to record invitation in database.', 'invite-anyone' ),
+						);
+					}
+				} else {
+					$results['failed'][] = array(
+						'email'  => $filtered_email,
+						'reason' => __( 'Failed to send invitation email.', 'invite-anyone' ),
+					);
+				}
+			}
+
+			// Fire action hook for all sent invitations.
+			if ( ! empty( $results['sent'] ) ) {
+				$sent_emails = wp_list_pluck( $results['sent'], 'email' );
+				do_action( 'sent_email_invites', get_current_user_id(), $sent_emails, $groups );
+			}
+		}
+
+		return rest_ensure_response( $results );
 	}
 
 	/**
