@@ -1,23 +1,77 @@
 <?php
-/* Invite Anyone database functions */
-
 /**
- * Defines the data schema for IA Invitations
+ * Invite Anyone database functions and schema management.
+ *
+ * This file contains the core database functionality for the Invite Anyone plugin,
+ * including the schema definitions, invitation object methods, and migration routines.
+ * It handles the creation and management of custom post types and taxonomies used
+ * to store invitation data, as well as various utility functions for working with
+ * invitation records.
  *
  * @package Invite Anyone
  * @since 0.8
  */
+
+/**
+ * Defines the data schema for IA Invitations.
+ *
+ * This class handles the database schema initialization and management for the
+ * Invite Anyone plugin. It sets up custom post types and taxonomies for storing
+ * invitation data, manages database version updates, and provides upgrade routines
+ * for migrating data between different plugin versions.
+ *
+ * @since 0.8
+ * @package Invite Anyone
+ */
 class Invite_Anyone_Schema {
+	/**
+	 * The name of the custom post type used for storing invitations.
+	 *
+	 * @since 0.8
+	 * @var string
+	 */
 	public $post_type_name;
+
+	/**
+	 * The name of the taxonomy used for storing invitee email addresses.
+	 *
+	 * @since 0.8
+	 * @var string
+	 */
 	public $invitee_tax_name;
+
+	/**
+	 * The name of the taxonomy used for storing invited groups.
+	 *
+	 * @since 0.8
+	 * @var string
+	 */
 	public $invited_groups_tax_name;
+
+	/**
+	 * The current database version for the plugin.
+	 *
+	 * @since 0.8
+	 * @var string
+	 */
 	public $db_version;
 
 	/**
-	 * PHP5 Constructor
+	 * Initialize the Invite Anyone Schema class and set up database structure.
 	 *
-	 * @package Invite Anyone
+	 * This constructor handles the initialization of the database schema for the Invite Anyone plugin.
+	 * It sets up the custom post type and taxonomy names, checks for database version updates,
+	 * and registers the necessary WordPress hooks for the invitation system.
+	 *
+	 * The constructor will return early if running on a multisite installation and the current
+	 * blog is not the root blog, as the custom post type should only be loaded on the root blog.
+	 *
 	 * @since 0.8
+	 * @package Invite Anyone
+	 *
+	 * @global object $current_blog The current blog object in multisite installations.
+	 *
+	 * @return void
 	 */
 	public function __construct() {
 		global $current_blog;
@@ -201,23 +255,39 @@ class Invite_Anyone_Schema {
 	}
 
 	/**
-	 * A filtered check for is_super_admin(), so plugins can mod who can see the Dashboard UI
-	 * for the custom post type
+	 * Determine whether the dashboard UI should be shown for the custom post type.
 	 *
-	 * @package Invite Anyone
+	 * This function provides a filtered check for is_super_admin() to determine if the
+	 * current user should see the Dashboard UI for the invitation custom post type.
+	 * By default, only super admins can see the dashboard interface, but this can be
+	 * modified by plugins using the 'show_dashboard_ui' filter.
+	 *
 	 * @since 0.9
+	 * @package Invite Anyone
 	 *
-	 * @return bool
+	 * @return bool True if the dashboard UI should be shown, false otherwise.
 	 */
 	public function show_dashboard_ui() {
 		return apply_filters( 'show_dashboard_ui', is_super_admin() );
 	}
 
 	/**
-	 * Checks for necessary updates to data schema
+	 * Check for necessary database schema updates and schedule them.
 	 *
-	 * @package Invite Anyone
+	 * This function compares the current database version with the required version
+	 * and schedules appropriate upgrade routines to be run. It handles version checks
+	 * for multiple plugin versions and ensures that database migrations are performed
+	 * in the correct order.
+	 *
+	 * The function schedules the following upgrades:
+	 * - 0.9: Migrates accepted invitation data from date_modified to post meta
+	 * - 1.4.0: Installs default email templates
+	 * - 1.4.11: Migrates to meta-based email storage for better performance
+	 *
 	 * @since 0.9
+	 * @package Invite Anyone
+	 *
+	 * @return void
 	 */
 	public function update() {
 		if ( version_compare( $this->db_version, '0.9', '<' ) ) {
@@ -234,10 +304,24 @@ class Invite_Anyone_Schema {
 	}
 
 	/**
-	 * Upgrade for pre-0.9
+	 * Perform database upgrade for version 0.9.
 	 *
-	 * @package Invite Anyone
+	 * This upgrade function migrates invitation acceptance data from the post_modified
+	 * field to a dedicated post meta field called 'bp_ia_accepted'. This change provides
+	 * better data integrity and makes it easier to query for accepted invitations.
+	 *
+	 * The function processes invitations in batches of 30 to avoid memory issues with
+	 * large datasets. For each invitation, it compares the post_date with post_modified
+	 * to determine if the invitation was accepted (dates differ) and stores the appropriate
+	 * value in the new meta field.
+	 *
 	 * @since 0.9
+	 * @package Invite Anyone
+	 *
+	 * @global WP_Query $wp_query The main WordPress query object.
+	 * @global WP_Post $post The current post object.
+	 *
+	 * @return void
 	 */
 	public function upgrade_0_9() {
 		global $wp_query, $post;
@@ -306,18 +390,37 @@ class Invite_Anyone_Schema {
 	}
 
 	/**
-	 * Upgrade for 1.4.0
+	 * Perform database upgrade for version 1.4.0.
+	 *
+	 * This upgrade function installs the default email templates for the invitation system.
+	 * It calls the invite_anyone_install_emails function with the force parameter set to true
+	 * to ensure that email templates are properly installed or updated during the upgrade process.
 	 *
 	 * @since 1.4.0
+	 * @package Invite Anyone
+	 *
+	 * @return void
 	 */
 	public function upgrade_1_4_0() {
 		invite_anyone_install_emails( true );
 	}
 
 	/**
-	 * Upgrade for 1.4.11 - Migrate to meta-based email storage
+	 * Perform database upgrade for version 1.4.11 - Migrate to meta-based email storage.
+	 *
+	 * This upgrade function initiates the migration from taxonomy-based email storage
+	 * to meta-based email storage for better performance and easier querying. The migration
+	 * is scheduled as a background process to avoid timeout issues on sites with large
+	 * numbers of invitations.
+	 *
+	 * The function schedules a single event to run 10 seconds after the upgrade, which
+	 * will begin the migration process. The migration handler will process invitations
+	 * in batches and reschedule itself until all invitations are migrated.
 	 *
 	 * @since 1.4.11
+	 * @package Invite Anyone
+	 *
+	 * @return void
 	 */
 	public function upgrade_1_4_11() {
 		// Run the migration in the background to avoid timeouts.
@@ -330,25 +433,71 @@ class Invite_Anyone_Schema {
 $invite_anyone_data = new Invite_Anyone_Schema();
 
 /**
- * Defines the invitation object and its methods
+ * Defines the invitation object and its methods.
  *
- * @package Invite Anyone
+ * This class represents individual invitation records and provides methods
+ * for creating, retrieving, and managing invitations. Each invitation is
+ * stored as a WordPress custom post with associated taxonomy terms and
+ * meta data to track invitation status, recipients, and related information.
+ *
  * @since 0.8
+ * @package Invite Anyone
  */
 class Invite_Anyone_Invitation {
+	/**
+	 * The unique ID of the invitation post.
+	 *
+	 * @since 0.8
+	 * @var int|null
+	 */
 	public $id;
+
+	/**
+	 * The name of the taxonomy used for storing invitee email addresses.
+	 *
+	 * @since 0.8
+	 * @var string
+	 */
 	public $invitee_tax_name;
+
+	/**
+	 * The name of the custom post type used for storing invitations.
+	 *
+	 * @since 0.8
+	 * @var string
+	 */
 	public $post_type_name;
+
+	/**
+	 * The name of the taxonomy used for storing invited groups.
+	 *
+	 * @since 0.8
+	 * @var string
+	 */
 	public $invited_groups_tax_name;
+
+	/**
+	 * The order direction for email sorting (used in deprecated functions).
+	 *
+	 * @since 0.9
+	 * @var string
+	 */
 	public $email_order;
 
 	/**
-	 * PHP5 Constructor
+	 * Initialize the Invite Anyone Invitation object.
 	 *
-	 * @package Invite Anyone
+	 * This constructor initializes an invitation object with optional ID parameter.
+	 * If an ID is provided, it will be stored in the object for use in subsequent
+	 * operations. The constructor also sets up the necessary post type and taxonomy
+	 * names using filtered values to ensure consistency throughout the plugin.
+	 *
 	 * @since 0.8
+	 * @package Invite Anyone
 	 *
-	 * @param int $id Optional. The unique id of the invitation post
+	 * @param int|false $id Optional. The unique ID of the invitation post. Default false.
+	 *
+	 * @return void
 	 */
 	public function __construct( $id = false ) {
 		if ( $id ) {
@@ -366,14 +515,35 @@ class Invite_Anyone_Invitation {
 	}
 
 	/**
-	 * Creates a new invitation
+	 * Create a new invitation record in the database.
 	 *
-	 * See the $defaults array for the potential values of $args
+	 * This function creates a new invitation by inserting a WordPress post of the
+	 * invitation custom post type and associating it with the appropriate taxonomy
+	 * terms and meta data. The function handles all aspects of invitation creation
+	 * including validation, post insertion, meta data storage, and taxonomy assignment.
 	 *
-	 * @package Invite Anyone
+	 * The function accepts an array of arguments that define the invitation properties.
+	 * Required arguments include inviter_id, invitee_email, message, and subject.
+	 * Optional arguments include groups, status, dates, and CloudSponge flag.
+	 *
 	 * @since 0.8
+	 * @package Invite Anyone
 	 *
-	 * @param array $args
+	 * @param array $args {
+	 *     Optional. Array of arguments for creating the invitation.
+	 *
+	 *     @type int          $inviter_id     ID of the user sending the invitation. Default: current logged-in user.
+	 *     @type string       $invitee_email  Email address of the invitation recipient. Required.
+	 *     @type string       $message        Content of the invitation email. Required.
+	 *     @type string       $subject        Subject line of the invitation email. Required.
+	 *     @type array|false  $groups         Array of group IDs to invite the user to join. Default false.
+	 *     @type string       $status         Post status for the invitation. Default 'publish'.
+	 *     @type string       $date_created   Date when the invitation was created. Default current time.
+	 *     @type string       $date_modified  Date when the invitation was last modified. Default current time.
+	 *     @type bool         $is_cloudsponge Whether the email came from CloudSponge. Default false.
+	 * }
+	 *
+	 * @return int|false The ID of the created invitation post on success, false on failure.
 	 */
 	public function create( $args = false ) {
 		// Set up the default arguments
@@ -464,14 +634,36 @@ class Invite_Anyone_Invitation {
 	}
 
 	/**
-	 * Pulls up a list of existing invitations, based on a set of arguments provided
+	 * Retrieve existing invitations based on specified criteria.
 	 *
-	 * See the $defaults array for the potential values of $args
+	 * This function queries the database for invitations that match the provided
+	 * criteria. It supports filtering by inviter, invitee email, message content,
+	 * subject, associated groups, status, and creation date. The function also
+	 * supports pagination and custom ordering of results.
 	 *
-	 * @package Invite Anyone
+	 * The function uses WP_Query internally and returns a WP_Query object, allowing
+	 * for standard WordPress post loop operations on the results.
+	 *
 	 * @since 0.8
+	 * @package Invite Anyone
 	 *
-	 * @param array $args
+	 * @param array $args {
+	 *     Optional. Array of arguments for querying invitations.
+	 *
+	 *     @type int|false    $inviter_id     ID of the user who sent the invitation. Default false.
+	 *     @type string|false $invitee_email  Email address of the invitation recipient. Default false.
+	 *     @type string|false $message        Content of the invitation email to match. Default false.
+	 *     @type string|false $subject        Subject line of the invitation email to match. Default false.
+	 *     @type array|false  $groups         Array of group IDs to filter by. Default false.
+	 *     @type string       $status         Post status to filter by. Default 'publish'.
+	 *     @type string|false $date_created   Date filter for invitation creation. Default false.
+	 *     @type int|false    $posts_per_page Number of invitations per page. Default false.
+	 *     @type int|false    $paged          Page number for pagination. Default false.
+	 *     @type string       $orderby        Field to order results by. Default 'post_date'.
+	 *     @type string       $order          Order direction (ASC or DESC). Default 'DESC'.
+	 * }
+	 *
+	 * @return WP_Query Query object containing the matching invitations.
 	 */
 	public function get( $args = false ) {
 		// Set up the default arguments
@@ -585,11 +777,20 @@ class Invite_Anyone_Invitation {
 	}
 
 	/**
-	 * Filters the join section of the query when sorting by invited email address
+	 * Filter the SQL JOIN clause when sorting by invited email address (DEPRECATED).
 	 *
-	 * @deprecated 1.4.11 Use meta-based sorting instead.
-	 * @package Invite Anyone
+	 * This function was used to modify the SQL JOIN clause in WordPress queries
+	 * to enable sorting invitations by the invited email address stored in taxonomy
+	 * terms. It has been deprecated in favor of the more efficient meta-based
+	 * email storage and sorting system.
+	 *
+	 * @deprecated 1.4.11 Use meta-based email sorting instead.
 	 * @since 0.9
+	 * @package Invite Anyone
+	 *
+	 * @param string $join The SQL JOIN clause to be modified.
+	 *
+	 * @return string The modified JOIN clause with taxonomy table joins.
 	 */
 	public function filter_join_emails( $join ) {
 		_deprecated_function( __METHOD__, '1.4.11', 'Meta-based email sorting' );
@@ -606,11 +807,20 @@ class Invite_Anyone_Invitation {
 	}
 
 	/**
-	 * Filters the fields section of the query when sorting by invited email address
+	 * Filter the SQL SELECT fields when sorting by invited email address (DEPRECATED).
 	 *
-	 * @deprecated 1.4.11 Use meta-based sorting instead.
-	 * @package Invite Anyone
+	 * This function was used to add additional fields to the SELECT clause of
+	 * WordPress queries to enable sorting by email addresses stored in taxonomy
+	 * terms. It has been deprecated in favor of the more efficient meta-based
+	 * email storage and sorting system.
+	 *
+	 * @deprecated 1.4.11 Use meta-based email sorting instead.
 	 * @since 0.9
+	 * @package Invite Anyone
+	 *
+	 * @param string $fields The SQL SELECT fields to be modified.
+	 *
+	 * @return string The modified SELECT fields with taxonomy term fields.
 	 */
 	public function filter_fields_emails( $fields ) {
 		_deprecated_function( __METHOD__, '1.4.11', 'Meta-based email sorting' );
@@ -621,11 +831,20 @@ class Invite_Anyone_Invitation {
 	}
 
 	/**
-	 * Filters the orderby section of the query when sorting by invited email address
+	 * Filter the SQL ORDER BY clause when sorting by invited email address (DEPRECATED).
 	 *
-	 * @deprecated 1.4.11 Use meta-based sorting instead.
-	 * @package Invite Anyone
+	 * This function was used to modify the ORDER BY clause in WordPress queries
+	 * to enable sorting invitations by the invited email address stored in taxonomy
+	 * terms. It has been deprecated in favor of the more efficient meta-based
+	 * email storage and sorting system.
+	 *
+	 * @deprecated 1.4.11 Use meta-based email sorting instead.
 	 * @since 0.9
+	 * @package Invite Anyone
+	 *
+	 * @param string $orderby The SQL ORDER BY clause to be modified.
+	 *
+	 * @return string The modified ORDER BY clause for email sorting.
 	 */
 	public function filter_orderby_emails( $orderby ) {
 		_deprecated_function( __METHOD__, '1.4.11', 'Meta-based email sorting' );
@@ -636,12 +855,17 @@ class Invite_Anyone_Invitation {
 	}
 
 	/**
-	 * Mark an invitation as accepted
+	 * Mark an invitation as accepted by the recipient.
 	 *
-	 * @package Invite Anyone
+	 * This function updates the invitation's meta data to record that the invitation
+	 * has been accepted. It sets the 'bp_ia_accepted' meta field to the current GMT
+	 * timestamp, which is used throughout the plugin to determine invitation status
+	 * and generate acceptance statistics.
+	 *
 	 * @since 0.8
+	 * @package Invite Anyone
 	 *
-	 * @param array $args
+	 * @return bool True on successful update, false on failure.
 	 */
 	public function mark_accepted() {
 		update_post_meta( $this->id, 'bp_ia_accepted', gmdate( 'Y-m-d H:i:s' ) );
@@ -650,12 +874,17 @@ class Invite_Anyone_Invitation {
 	}
 
 	/**
-	 * Clear (unpublish) an invitation
+	 * Clear (hide) an invitation from the Sent Invites list.
 	 *
-	 * @package Invite Anyone
+	 * This function changes the post status of an invitation from 'publish' to 'draft',
+	 * effectively removing it from the user's Sent Invites list without permanently
+	 * deleting the invitation record. This allows users to clean up their invitation
+	 * history while preserving the data for administrative purposes.
+	 *
 	 * @since 0.8
+	 * @package Invite Anyone
 	 *
-	 * @param array $args
+	 * @return bool True on successful update, false on failure.
 	 */
 	public function clear() {
 		$args = array(
@@ -670,12 +899,17 @@ class Invite_Anyone_Invitation {
 	}
 
 	/**
-	 * Mark an invite as being opt-out
+	 * Mark an invitation as opted out by the recipient.
 	 *
-	 * @package Invite Anyone
+	 * This function sets the 'opt_out' meta field to 'yes' for the invitation,
+	 * indicating that the recipient has chosen to opt out of receiving future
+	 * invitations. This is typically used when users click unsubscribe links
+	 * in invitation emails or explicitly request to stop receiving invitations.
+	 *
 	 * @since 0.8
+	 * @package Invite Anyone
 	 *
-	 * @param array $args
+	 * @return bool True on successful update, false on failure.
 	 */
 	public function mark_opt_out() {
 		if ( update_post_meta( $this->id, 'opt_out', 'yes' ) ) {
@@ -740,17 +974,25 @@ class Invite_Anyone_Invitation {
 }
 
 /**
- * Records an invitation
+ * Record a new invitation in the database.
  *
+ * This function serves as a convenient wrapper for creating new invitations.
+ * It handles the special case of Gmail "+" addresses by converting them to
+ * a format that can be safely stored and retrieved. The function creates
+ * a new Invite_Anyone_Invitation object and calls its create method with
+ * the provided parameters.
+ *
+ * @since 0.8
  * @package Invite Anyone
- * @since {@internal Version Unknown}
  *
- * @param int $inviter_id
- * @param string $email The email address of the individual receiving the invitation
- * @param string $message The content of the email message
- * @param array $groups An array of group ids that the invitation invites the user to join
- * @param string $subject Optional The subject line of the email
- * @param bool $is_cloudsponge Did this email address originate with CloudSponge?
+ * @param int          $inviter_id     The ID of the user sending the invitation.
+ * @param string       $email          The email address of the invitation recipient.
+ * @param string       $message        The content of the invitation email.
+ * @param array        $groups         An array of group IDs that the invitation invites the user to join.
+ * @param string|false $subject        Optional. The subject line of the invitation email. Default false.
+ * @param bool         $is_cloudsponge Optional. Whether this email address originated from CloudSponge. Default false.
+ *
+ * @return int|false The ID of the created invitation on success, false on failure.
  */
 function invite_anyone_record_invitation( $inviter_id, $email, $message, $groups, $subject = false, $is_cloudsponge = false ) {
 
@@ -775,14 +1017,23 @@ function invite_anyone_record_invitation( $inviter_id, $email, $message, $groups
 
 
 /**
- * Get the invitations that a user has sent
+ * Retrieve invitations sent by a specific user.
  *
+ * This function provides a convenient way to query all invitations sent by
+ * a particular user. It supports optional parameters for ordering, pagination,
+ * and limiting the number of results returned. The function is commonly used
+ * to display a user's sent invitations in their profile or dashboard.
+ *
+ * @since 0.8
  * @package Invite Anyone
- * @since {@internal Version Unknown}
  *
- * @param int $inviter_id
- * @param string $orderby Optional The column being ordered by
- * @param string $order Optional ASC or DESC
+ * @param int          $inviter_id     The ID of the user whose invitations to retrieve.
+ * @param string|false $orderby        Optional. The field to order results by. Default false.
+ * @param string|false $order          Optional. The order direction (ASC or DESC). Default false.
+ * @param int|false    $posts_per_page Optional. Number of invitations per page. Default false.
+ * @param int|false    $paged          Optional. Page number for pagination. Default false.
+ *
+ * @return WP_Query Query object containing the matching invitations.
  */
 function invite_anyone_get_invitations_by_inviter_id( $inviter_id, $orderby = false, $order = false, $posts_per_page = false, $paged = false ) {
 	$args = array(
@@ -799,12 +1050,23 @@ function invite_anyone_get_invitations_by_inviter_id( $inviter_id, $orderby = fa
 }
 
 /**
- * Get the invitations that have been sent to a given email address
+ * Retrieve invitations sent to a specific email address.
  *
+ * This function queries the database for all invitations that have been sent
+ * to a particular email address. It handles special cases for Gmail "+" addresses
+ * by converting them to the stored format and also handles URL decoding issues
+ * that may occur when email addresses are passed through URLs.
+ *
+ * The function is commonly used during the registration process to check if
+ * a user has pending invitations or to display invitation history for a
+ * specific email address.
+ *
+ * @since 0.8
  * @package Invite Anyone
- * @since {@internal Version Unknown}
  *
- * @param string $email The email address being checked
+ * @param string $email The email address to search for invitations.
+ *
+ * @return WP_Query Query object containing all invitations sent to the email address.
  */
 function invite_anyone_get_invitations_by_invited_email( $email ) {
 	// hack to make sure that gmail + email addresses work
@@ -830,12 +1092,29 @@ function invite_anyone_get_invitations_by_invited_email( $email ) {
 }
 
 /**
- * Clears invitations from the Sent Invites list
+ * Clear invitations from the Sent Invites list based on specified criteria.
  *
+ * This function allows users to clean up their sent invitations list by removing
+ * invitations based on various criteria. It can clear a specific invitation by ID,
+ * or clear multiple invitations based on their acceptance status (accepted,
+ * unaccepted, or all).
+ *
+ * To prevent timeout and memory issues, the function processes a limited number
+ * of invitations per request (default 100). For large-scale clearing operations,
+ * multiple requests may be required.
+ *
+ * @since 0.8
  * @package Invite Anyone
- * @since {@internal Version Unknown}
  *
- * @param array $args See below for the definition
+ * @param array $args {
+ *     Array of arguments for clearing invitations.
+ *
+ *     @type int|false    $inviter_id ID of the user whose invitations to clear. Required.
+ *     @type int|false    $clear_id   ID of a specific invitation to clear. Optional.
+ *     @type string|false $type       Type of invitations to clear: 'accepted', 'unaccepted', or 'all'. Optional.
+ * }
+ *
+ * @return bool True on success, false on failure.
  */
 function invite_anyone_clear_sent_invite( $args ) {
 	global $post;
@@ -925,12 +1204,22 @@ function invite_anyone_clear_sent_invite( $args ) {
 }
 
 /**
- * Mark all of the invitations associated with a given address as joined
+ * Mark all invitations for a specific email address as accepted/joined.
  *
+ * This function is typically called when a user registers or joins the site
+ * using an email address that has received invitations. It finds all invitations
+ * associated with the email address and marks them as accepted by updating
+ * the 'bp_ia_accepted' meta field with the current timestamp.
+ *
+ * This is useful for tracking invitation success rates and providing feedback
+ * to users who sent invitations about whether their invitations were successful.
+ *
+ * @since 0.8
  * @package Invite Anyone
- * @since {@internal Version Unknown}
  *
- * @param string $email The email address being checked
+ * @param string $email The email address of the user who has joined the site.
+ *
+ * @return bool True on success, false on failure.
  */
 function invite_anyone_mark_as_joined( $email ) {
 	$invites = invite_anyone_get_invitations_by_invited_email( $email );
@@ -948,12 +1237,24 @@ function invite_anyone_mark_as_joined( $email ) {
 }
 
 /**
- * Check to see whether a user has opted out of email invitations from the site
+ * Check if a user has opted out of receiving email invitations.
  *
+ * This function queries the database to determine if a specific email address
+ * has been marked as opted out of receiving invitations. It checks for any
+ * invitation records associated with the email address that have the 'opt_out'
+ * meta field set to 'yes'.
+ *
+ * The function handles Gmail "+" addresses by converting spaces back to plus
+ * signs, which may occur during URL processing. This ensures that opt-out
+ * status is properly checked regardless of how the email address was formatted
+ * in the URL.
+ *
+ * @since 0.8
  * @package Invite Anyone
- * @since {@internal Version Unknown}
  *
- * @param string $email The email address being checked
+ * @param string $email The email address to check for opt-out status.
+ *
+ * @return bool True if the email has opted out, false otherwise.
  */
 function invite_anyone_check_is_opt_out( $email ) {
 	$email = str_replace( ' ', '+', $email );
@@ -977,12 +1278,23 @@ function invite_anyone_check_is_opt_out( $email ) {
 }
 
 /**
- * Mark all of an address's invitations as opt_out so that no others are sent
+ * Mark all invitations for an email address as opted out.
  *
+ * This function finds all invitation records associated with a specific email
+ * address and marks them as opted out by setting the 'opt_out' meta field to
+ * 'yes'. This prevents future invitations from being sent to the email address
+ * and provides a record of the opt-out request.
+ *
+ * The function is typically called when a user clicks an unsubscribe link in
+ * an invitation email or when they explicitly request to stop receiving
+ * invitations from the site.
+ *
+ * @since 0.8
  * @package Invite Anyone
- * @since {@internal Version Unknown}
  *
- * @param string $email The email address being checked
+ * @param string $email The email address to mark as opted out.
+ *
+ * @return bool True on success, false on failure.
  */
 function invite_anyone_mark_as_opt_out( $email ) {
 	$invites = invite_anyone_get_invitations_by_invited_email( $email );
@@ -1000,10 +1312,25 @@ function invite_anyone_mark_as_opt_out( $email ) {
 }
 
 /**
- * Checks to see whether a migration is necessary, and if so, prompts the user for it.
+ * Display a migration notice to administrators when database upgrade is needed.
  *
- * @package Invite Anyone
+ * This function checks whether the plugin needs to migrate data from the old
+ * table-based storage system to the new custom post type system. It displays
+ * an admin notice to super administrators prompting them to complete the migration.
+ *
+ * The function performs several checks:
+ * - Only shows the notice to super administrators
+ * - Checks if the database version is outdated (pre-0.8)
+ * - Verifies that the old table exists and contains data
+ * - Automatically handles small migrations (5 or fewer records)
+ * - Provides a link to the manual migration process for larger datasets
+ *
  * @since 0.8.3
+ * @package Invite Anyone
+ *
+ * @global wpdb $wpdb The WordPress database abstraction object.
+ *
+ * @return void
  */
 function invite_anyone_migrate_nag() {
 	global $wpdb;
@@ -1069,23 +1396,33 @@ add_action( is_multisite() && function_exists( 'is_network_admin' ) ? 'network_a
 
 
 /**
- * Move old table data into custom post types.
+ * Migrate invitation data from old table structure to custom post types.
  *
- * This function was originally written in such a way as to move everthing at once. Subsequent tests
- * showed that this caused timeout problems with large migrations, so the code has been retrofitted
- * to work in sets of 5, with 1s JS timeouts between pages. Some of that code has been borrowed from
- * Ron Rennick's Shardb - thanks Ron.
+ * This function handles the migration of invitation data from the legacy
+ * table-based storage system to the new custom post type system. It processes
+ * invitations in batches to avoid timeout issues and provides feedback during
+ * the migration process.
  *
- * As a result of the retrofitting, this code, and its related functions, are a terrible spaghetti
- * mess. They should not be used to model anything, except possibly how to write crappy code that
- * cannot be reused.
+ * The function was originally designed to process all records at once but was
+ * retrofitted to work in batches of 5 records with JavaScript-based pagination
+ * to handle large datasets. This approach prevents timeout and memory issues
+ * but results in somewhat complex code structure.
  *
- * @package Invite Anyone
+ * For each invitation record, the function:
+ * - Checks if the invitation has already been migrated
+ * - Creates a new custom post type record
+ * - Migrates associated meta data (opt-out status, etc.)
+ * - Preserves original dates and relationships
+ *
  * @since 0.8
+ * @package Invite Anyone
  *
- * @see invite_anyone_migration_step()
- * @param string $type 'full' means that it will silently attempt to transfer all records
- * @param int $start The record id to start with (offset)
+ * @global wpdb $wpdb The WordPress database abstraction object.
+ *
+ * @param string $type  Optional. Migration type: 'full' for silent migration or 'partial' for step-by-step. Default 'full'.
+ * @param int    $start Optional. The record offset to start migration from. Default 0.
+ *
+ * @return void
  */
 function invite_anyone_data_migration( $type = 'full', $start = 0 ) {
 	global $wpdb;
@@ -1217,10 +1554,23 @@ function invite_anyone_data_migration( $type = 'full', $start = 0 ) {
 }
 
 /**
- * Loads the markup for the migration process. Called from invite_anyone_admin_panel()
+ * Display the migration interface and handle step-by-step migration process.
  *
- * @package Invite Anyone
+ * This function provides the user interface for the database migration process.
+ * It displays either the initial migration prompt or the progress of an ongoing
+ * migration, depending on the URL parameters. The function handles both the
+ * start of the migration process and the processing of individual migration steps.
+ *
+ * The interface includes:
+ * - Initial migration prompt with "GO" button
+ * - Progress display during migration
+ * - JavaScript-based automatic progression between steps
+ * - Completion message with link back to admin panel
+ *
  * @since 0.8.3
+ * @package Invite Anyone
+ *
+ * @return void
  */
 function invite_anyone_migration_step() {
 	$url = is_multisite() && function_exists( 'network_admin_url' ) ? network_admin_url( 'admin.php?page=invite-anyone/admin/admin-panel.php' ) : admin_url( 'admin.php?page=invite-anyone/admin/admin-panel.php' );
@@ -1248,10 +1598,21 @@ function invite_anyone_migration_step() {
 }
 
 /**
- * Scheduled action handler for migrating invitations to meta-based email storage
+ * Handle scheduled background migration of invitations to meta-based email storage.
  *
- * @package Invite Anyone
+ * This function serves as the callback for the 'invite_anyone_migrate_to_meta_emails'
+ * scheduled event. It processes a batch of invitations that need to be migrated
+ * from taxonomy-based email storage to the new meta-based storage system.
+ *
+ * The function calls the static migration method and, if there are still invitations
+ * to process, schedules another run in 30 seconds. This approach ensures that
+ * large migrations can be completed in the background without causing timeout
+ * issues or impacting site performance.
+ *
  * @since 1.4.11
+ * @package Invite Anyone
+ *
+ * @return void
  */
 function invite_anyone_migrate_to_meta_emails_handler() {
 	$results = Invite_Anyone_Invitation::migrate_to_meta_emails();
@@ -1264,14 +1625,32 @@ function invite_anyone_migrate_to_meta_emails_handler() {
 add_action( 'invite_anyone_migrate_to_meta_emails', 'invite_anyone_migrate_to_meta_emails_handler' );
 
 /**
- * Manually trigger the migration to meta-based email storage
+ * Manually trigger the complete migration to meta-based email storage.
  *
- * This can be called from wp-admin or via WP-CLI to manually run the migration.
+ * This function provides a way to manually run the complete migration process
+ * from taxonomy-based email storage to meta-based storage. Unlike the scheduled
+ * background migration, this function processes all invitations in a single
+ * execution by running multiple batches until the migration is complete.
  *
- * @package Invite Anyone
+ * The function is useful for:
+ * - Administrative purposes when immediate migration is needed
+ * - WP-CLI commands that require synchronous execution
+ * - Testing and debugging the migration process
+ *
+ * The function returns detailed statistics about the migration process, including
+ * the total number of invitations processed, successfully updated, and any errors
+ * encountered during the migration.
+ *
  * @since 1.4.11
+ * @package Invite Anyone
  *
- * @return array Results of the migration process.
+ * @return array {
+ *     Results of the migration process.
+ *
+ *     @type int $processed Total number of invitations processed.
+ *     @type int $updated   Number of invitations successfully updated.
+ *     @type int $errors    Number of errors encountered during migration.
+ * }
  */
 function invite_anyone_manual_migrate_to_meta_emails() {
 	$total_results = array(
