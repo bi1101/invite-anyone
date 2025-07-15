@@ -293,16 +293,16 @@ function invite_anyone_activate_user( $user_id ) {
 			}
 		}
 
-		// BuddyPress Followers support
-		if ( function_exists( 'bp_follow_start_following' ) && apply_filters( 'invite_anyone_send_follow_requests_on_acceptance', true ) ) {
+		// BuddyBoss Followers support
+		if ( function_exists( 'bp_start_following' ) && apply_filters( 'invite_anyone_send_follow_requests_on_acceptance', true ) ) {
 			foreach ( $inviters as $inviter ) {
-				bp_follow_start_following(
+				bp_start_following(
 					array(
 						'leader_id'   => $user_id,
 						'follower_id' => $inviter,
 					)
 				);
-				bp_follow_start_following(
+				bp_start_following(
 					array(
 						'leader_id'   => $inviter,
 						'follower_id' => $user_id,
@@ -314,12 +314,6 @@ function invite_anyone_activate_user( $user_id ) {
 		// Group invitations
 		if ( bp_is_active( 'groups' ) ) {
 			foreach ( $groups as $group_id => $inviter_id ) {
-				$args = array(
-					'user_id'    => $user_id,
-					'group_id'   => $group_id,
-					'inviter_id' => $inviter_id,
-				);
-
 				groups_join_group( $group_id, $user_id );
 			}
 		}
