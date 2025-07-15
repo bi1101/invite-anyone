@@ -1,7 +1,17 @@
 <?php
 
-/* Load JS necessary for group invitation pages */
-
+/**
+ * Enqueues JavaScript files necessary for group invitation pages.
+ *
+ * This function loads the required JavaScript files for group invitation
+ * functionality, including jQuery autocomplete for user search and
+ * the main group invites script. It also localizes script variables
+ * for translations and configuration options.
+ *
+ * @since 1.0.0
+ *
+ * @return void
+ */
 function invite_anyone_add_js() {
 	if ( bp_is_current_action( BP_INVITE_ANYONE_SLUG ) || bp_is_action_variable( BP_INVITE_ANYONE_SLUG, 1 ) ) {
 
@@ -48,6 +58,17 @@ function invite_anyone_add_js() {
 }
 add_action( 'wp_head', 'invite_anyone_add_js', 1 );
 
+/**
+ * Enqueues CSS styles for group invitation pages.
+ *
+ * This function loads the CSS stylesheet for group invitation functionality
+ * when the user is on a group invitation page. It checks if the file exists
+ * before enqueuing to prevent 404 errors.
+ *
+ * @since 1.0.0
+ *
+ * @return void
+ */
 function invite_anyone_add_group_invite_css() {
 	if ( bp_is_current_action( BP_INVITE_ANYONE_SLUG ) || bp_is_action_variable( BP_INVITE_ANYONE_SLUG, 1 ) ) {
 		$style_url  = plugins_url() . '/invite-anyone/group-invites/group-invites-css.css';
@@ -67,6 +88,17 @@ function invite_anyone_add_group_invite_css() {
 }
 add_action( 'wp_print_styles', 'invite_anyone_add_group_invite_css' );
 
+/**
+ * Adds legacy CSS styles for older theme compatibility.
+ *
+ * This function outputs inline CSS styles for the navigation item
+ * to ensure proper display with older themes that may not have
+ * updated styling for the Invite Anyone plugin.
+ *
+ * @since 1.0.0
+ *
+ * @return void
+ */
 function invite_anyone_add_old_css() {
 	$plugins_url = plugins_url();
 	?>
@@ -82,12 +114,51 @@ li a#nav-invite-anyone {
 	<?php
 }
 
+/**
+ * BuddyPress Group Extension class for Invite Anyone functionality.
+ *
+ * This class extends BP_Group_Extension to provide group invitation
+ * functionality within BuddyPress groups. It handles both the group
+ * creation step and the group tab for sending invitations.
+ *
+ * @since 1.0.0
+ */
 class BP_Invite_Anyone extends BP_Group_Extension {
 
-	public $enable_nav_item    = true;
-	public $enable_create_step = true;
-	public $enable_edit_item   = false;
+	/**
+	 * Whether to enable the navigation item.
+	 *
+	 * @since 1.0.0
+	 * @var bool
+	 */
+	public $enable_nav_item = true;
 
+	/**
+	 * Whether to enable the creation step.
+	 *
+	 * @since 1.0.0
+	 * @var bool
+	 */
+	public $enable_create_step = true;
+
+	/**
+	 * Whether to enable the edit item.
+	 *
+	 * @since 1.0.0
+	 * @var bool
+	 */
+	public $enable_edit_item = false;
+
+	/**
+	 * Constructor for the BP_Invite_Anyone class.
+	 *
+	 * Initializes the group extension with proper configuration
+	 * including slug, name, access permissions, and screen settings.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @global object $bp BuddyPress global object.
+	 */
 	public function __construct() {
 		global $bp;
 
@@ -111,9 +182,19 @@ class BP_Invite_Anyone extends BP_Group_Extension {
 	}
 
 	/**
-	 * Display the group tab.
+	 * Displays the group tab content for sending invitations.
 	 *
-	 * @param int $group_id Available only on BP 2.2+.
+	 * This method handles the display of the group invitation tab,
+	 * including processing invitation sends and showing the
+	 * invitation form or success messages.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @global object $bp BuddyPress global object.
+	 *
+	 * @param int $group_id Group ID. Available only on BP 2.2+.
+	 *
+	 * @return bool|void False on nonce failure, void otherwise.
 	 */
 	public function display( $group_id = null ) {
 		global $bp;
@@ -135,6 +216,21 @@ class BP_Invite_Anyone extends BP_Group_Extension {
 		invite_anyone_create_screen_content();
 	}
 
+	/**
+	 * Displays the group creation step screen.
+	 *
+	 * This method handles the display of the invitation step during
+	 * group creation. It shows the invitation form and handles
+	 * the nonce field for security.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @global object $bp BuddyPress global object.
+	 *
+	 * @param int $group_id Group ID.
+	 *
+	 * @return bool|void False if not at the correct step, void otherwise.
+	 */
 	public function create_screen( $group_id = null ) {
 		global $bp;
 
@@ -148,6 +244,21 @@ class BP_Invite_Anyone extends BP_Group_Extension {
 		wp_nonce_field( 'groups_create_save_' . $this->slug );
 	}
 
+	/**
+	 * Saves the group creation step data.
+	 *
+	 * This method handles the saving of invitation data during
+	 * group creation. It verifies the nonce and processes any
+	 * pending invitations.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @global object $bp BuddyPress global object.
+	 *
+	 * @param int $group_id Group ID.
+	 *
+	 * @return void
+	 */
 	public function create_screen_save( $group_id = null ) {
 		global $bp;
 
@@ -162,6 +273,21 @@ class BP_Invite_Anyone extends BP_Group_Extension {
 		$this->save( $group_id );
 	}
 
+	/**
+	 * Saves invitation data and sends invitations.
+	 *
+	 * This method handles the core saving functionality for both
+	 * group creation and regular group invitation sending. It
+	 * determines the appropriate redirect URL and processes invitations.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @global object $bp BuddyPress global object.
+	 *
+	 * @param int $group_id Group ID.
+	 *
+	 * @return void
+	 */
 	public function save( $group_id = null ) {
 		global $bp;
 
@@ -189,15 +315,33 @@ class BP_Invite_Anyone extends BP_Group_Extension {
 	}
 
 	/**
-	 * Should the group creation step be included?
+	 * Determines whether the group creation step should be enabled.
 	 *
-	 * @since 1.2
+	 * This method checks the plugin options to determine if the
+	 * invitation step should be included in the group creation process.
+	 *
+	 * @since 1.2.0
+	 *
+	 * @return bool True if the create step should be enabled, false otherwise.
 	 */
 	public function enable_create_step() {
 		$options = invite_anyone_options();
 		return ! empty( $options['group_invites_enable_create_step'] ) && 'yes' === $options['group_invites_enable_create_step'];
 	}
 
+	/**
+	 * Determines whether the navigation item should be enabled.
+	 *
+	 * This method checks user permissions and group settings to
+	 * determine if the invitation navigation item should be displayed
+	 * in the group navigation.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @global object $bp BuddyPress global object.
+	 *
+	 * @return bool True if the nav item should be enabled, false otherwise.
+	 */
 	public function enable_nav_item() {
 		global $bp;
 
@@ -213,11 +357,35 @@ class BP_Invite_Anyone extends BP_Group_Extension {
 		}
 	}
 
+	/**
+	 * Widget display method (currently unused).
+	 *
+	 * This method is required by the BP_Group_Extension class
+	 * but is not currently implemented for the Invite Anyone
+	 * group extension.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return void
+	 */
 	public function widget_display() {}
 }
 bp_register_group_extension( 'BP_Invite_Anyone' );
 
 
+/**
+ * Catches and processes group invitation submissions.
+ *
+ * This function handles the processing of group invitation forms
+ * when they are submitted. It verifies nonces, sends invitations,
+ * and redirects to the appropriate page with success messages.
+ *
+ * @since 1.0.0
+ *
+ * @global object $bp BuddyPress global object.
+ *
+ * @return bool|void False on nonce failure, void otherwise.
+ */
 function invite_anyone_catch_group_invites() {
 	global $bp;
 
@@ -253,6 +421,17 @@ function invite_anyone_catch_group_invites() {
 }
 add_action( 'wp', 'invite_anyone_catch_group_invites', 1 );
 
+/**
+ * Displays the content for the group invitation screen.
+ *
+ * This function loads the appropriate template for the group
+ * invitation screen, either from the active theme or from
+ * the plugin's default template.
+ *
+ * @since 1.0.0
+ *
+ * @return void
+ */
 function invite_anyone_create_screen_content() {
 	$template = function_exists( 'bp_locate_template' ) ? bp_locate_template( 'groups/single/invite-anyone.php', false ) : locate_template( 'groups/single/invite-anyone.php', false );
 
@@ -263,12 +442,42 @@ function invite_anyone_create_screen_content() {
 	}
 }
 
-/* Creates the list of members on the Sent Invite screen */
+/**
+ * Displays the list of members for group invitations.
+ *
+ * This function outputs the HTML for the member list used in
+ * group invitation forms. It's a template function that calls
+ * the getter function to retrieve the actual content.
+ *
+ * @since 1.0.0
+ *
+ * @return void
+ */
 function bp_new_group_invite_member_list() {
 	// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	echo bp_get_new_group_invite_member_list();
 }
 
+/**
+ * Retrieves the HTML for the group invitation member list.
+ *
+ * This function generates the HTML for displaying a list of members
+ * that can be invited to a group. It includes checkboxes for each
+ * member and marks already invited members as checked.
+ *
+ * @since 1.0.0
+ *
+ * @global object $bp BuddyPress global object.
+ *
+ * @param string|array $args {
+ *     Optional. Arguments for generating the member list.
+ *
+ *     @type int|false $group_id  Group ID. Default: current group ID.
+ *     @type string    $separator HTML element to wrap each item. Default: 'li'.
+ * }
+ *
+ * @return string HTML string containing the member list.
+ */
 function bp_get_new_group_invite_member_list( $args = '' ) {
 	global $bp;
 
@@ -359,26 +568,64 @@ function invite_anyone_invite_query( $group_id = false, $search_terms = false, $
 }
 
 /**
- * Extends the WP_User_Query class to make it easier for us to search across different fields
+ * Extends the WP_User_Query class for enhanced user searching.
  *
- * @package Invite Anyone
+ * This class extends WP_User_Query to provide better search functionality
+ * across multiple user fields and to filter out non-registered users.
+ * It's specifically designed for the Invite Anyone plugin's needs.
+ *
  * @since 1.0.4
  */
 class Invite_Anyone_User_Query extends WP_User_Query {
+
+	/**
+	 * Constructor for the Invite_Anyone_User_Query class.
+	 *
+	 * Initializes the user query with a filter to show only
+	 * registered users, then calls the parent constructor.
+	 *
+	 * @since 1.0.4
+	 *
+	 * @param string|array $query Optional. Query arguments.
+	 */
 	public function __construct( $query = null ) {
 		add_action( 'pre_user_query', array( &$this, 'filter_registered_users_only' ) );
 		parent::__construct( $query );
 	}
 
 	/**
-	 * BuddyPress has different user statuses.  We need to filter the user list so only registered users are shown.
+	 * Filters the user query to show only registered users.
+	 *
+	 * BuddyPress has different user statuses, and this method ensures
+	 * that only users with status 0 (registered) are included in the
+	 * search results.
+	 *
+	 * @since 1.0.4
+	 *
+	 * @param WP_User_Query $query The user query object.
+	 *
+	 * @return void
 	 */
 	public function filter_registered_users_only( $query ) {
 		$query->query_where .= ' AND user_status = 0';
 	}
 
 	/**
-	 * @see WP_User_Query::get_search_sql()
+	 * Generates SQL for searching across multiple user fields.
+	 *
+	 * This method extends the parent get_search_sql method to search
+	 * across multiple user fields including email, login, nicename,
+	 * URL, and display name with wildcard matching.
+	 *
+	 * @since 1.0.4
+	 *
+	 * @global object $wpdb WordPress database object.
+	 *
+	 * @param string $the_string The search string.
+	 * @param array  $cols       The columns to search (ignored - method searches all fields).
+	 * @param bool   $wild       Whether to use wildcards (ignored - method always uses 'both').
+	 *
+	 * @return string The SQL WHERE clause for the search.
 	 */
 	public function get_search_sql( $the_string, $cols, $wild = false ) {
 		global $wpdb;
@@ -415,6 +662,23 @@ class Invite_Anyone_User_Query extends WP_User_Query {
 	}
 }
 
+/**
+ * Retrieves a list of members eligible for group invitations.
+ *
+ * This function gets a list of site members who can be invited to
+ * a group, formatted for use in invitation forms. It excludes
+ * current group members and provides display names for each user.
+ *
+ * @since 1.0.0
+ *
+ * @global object $bp   BuddyPress global object.
+ * @global object $wpdb WordPress database object.
+ *
+ * @param int|false $user_id  User ID (currently unused).
+ * @param int|null  $group_id Group ID. Default: current group ID.
+ *
+ * @return array|false Array of member data or false if no members found.
+ */
 function get_members_invite_list( $user_id = false, $group_id = null ) {
 	global $bp, $wpdb;
 
@@ -443,6 +707,19 @@ function get_members_invite_list( $user_id = false, $group_id = null ) {
 	return $friends;
 }
 
+/**
+ * Handles AJAX requests for inviting or uninviting users to groups.
+ *
+ * This function processes AJAX requests to invite or uninvite users
+ * from groups. It handles the invitation process and returns HTML
+ * for displaying the invited user in the interface.
+ *
+ * @since 1.0.0
+ *
+ * @global object $bp BuddyPress global object.
+ *
+ * @return bool|void False on failure, void on success with HTML output.
+ */
 function invite_anyone_ajax_invite_user() {
 	global $bp;
 
@@ -504,6 +781,17 @@ function invite_anyone_ajax_invite_user() {
 }
 add_action( 'wp_ajax_invite_anyone_groups_invite_user', 'invite_anyone_ajax_invite_user' );
 
+/**
+ * Handles AJAX requests for autocomplete user search.
+ *
+ * This function processes AJAX requests for the autocomplete
+ * functionality in group invitation forms. It searches for users
+ * based on the query string and returns formatted JSON data.
+ *
+ * @since 1.0.0
+ *
+ * @return void Outputs JSON data and dies.
+ */
 function invite_anyone_ajax_autocomplete_results() {
 	// phpcs:ignore WordPress.Security.NonceVerification
 	$query = sanitize_text_field( wp_unslash( $_REQUEST['query'] ) );
@@ -533,6 +821,19 @@ function invite_anyone_ajax_autocomplete_results() {
 }
 add_action( 'wp_ajax_invite_anyone_autocomplete_ajax_handler', 'invite_anyone_ajax_autocomplete_results' );
 
+/**
+ * Removes default group invitation steps from group creation.
+ *
+ * This function filters the group creation steps to remove the
+ * default 'group-invites' step when the Invite Anyone plugin
+ * is handling group invitations instead.
+ *
+ * @since 1.0.0
+ *
+ * @param array $a Array of group creation steps.
+ *
+ * @return array Modified array with group-invites step removed.
+ */
 function invite_anyone_remove_group_creation_invites( $a ) {
 
 	foreach ( $a as $key => $value ) {
@@ -543,6 +844,19 @@ function invite_anyone_remove_group_creation_invites( $a ) {
 	return $a;
 }
 
+/**
+ * Removes default invite subnav items when access is restricted.
+ *
+ * This function removes the default BuddyPress group invitation
+ * subnav items when the access test determines that invitations
+ * should be restricted to friends only.
+ *
+ * @since 1.0.0
+ *
+ * @global object $bp BuddyPress global object.
+ *
+ * @return void
+ */
 function invite_anyone_remove_invite_subnav() {
 	global $bp;
 
@@ -563,10 +877,21 @@ add_filter( 'groups_create_group_steps', 'invite_anyone_remove_group_creation_in
 add_action( 'bp_setup_nav', 'invite_anyone_remove_invite_subnav', 15 );
 
 /**
- * Determine access setting for a group/user pair.
+ * Determines access permissions for group invitations.
+ *
+ * This function checks the access permissions for a specific user
+ * and group combination to determine what level of invitation access
+ * the user should have (anyone, friends, or no one).
+ *
+ * @since 1.0.0
+ *
+ * @global object $current_user WordPress current user object.
+ * @global object $bp           BuddyPress global object.
  *
  * @param int $group_id Group ID. Default: current group ID.
- * @param int $user_id User ID. Default: current user ID.
+ * @param int $user_id  User ID. Default: current user ID.
+ *
+ * @return string Access level: 'anyone', 'friends', or 'noone'.
  */
 function invite_anyone_group_invite_access_test( $group_id = 0, $user_id = 0 ) {
 	global $current_user, $bp;
@@ -650,6 +975,17 @@ function invite_anyone_group_invite_access_test( $group_id = 0, $user_id = 0 ) {
 	return 'noone';
 }
 
+/**
+ * Generates the form action URL for group invitations.
+ *
+ * This function outputs the URL that the group invitation form
+ * should submit to. It constructs the URL based on the current
+ * group and the send action endpoint.
+ *
+ * @since 1.0.0
+ *
+ * @return void Outputs the escaped URL.
+ */
 function invite_anyone_group_invite_form_action() {
 	$url = bp_get_group_url(
 		groups_get_current_group(),
@@ -660,12 +996,17 @@ function invite_anyone_group_invite_form_action() {
 }
 
 /**
- * Catch the 'to' email address of sent email notifications, and hook message filter if necessary
+ * Filters group invitation email messages based on friendship status.
  *
- * This function is necessary because the groups_notification_group_invites_message
- * filter doesn't receive easily parsable info about the invitee.
+ * This function checks the friendship status between the inviter and
+ * invitee, and if they are not friends, it hooks a custom message
+ * filter to modify the invitation email content.
  *
  * @since 1.0.22
+ *
+ * @param string $to The email address of the invitation recipient.
+ *
+ * @return string The email address (unchanged).
  */
 function invite_anyone_group_invite_maybe_filter_invite_message( $to ) {
 	if ( ! bp_is_active( 'friends' ) ) {
@@ -684,13 +1025,22 @@ function invite_anyone_group_invite_maybe_filter_invite_message( $to ) {
 add_filter( 'groups_notification_group_invites_to', 'invite_anyone_group_invite_maybe_filter_invite_message' );
 
 /**
- * Filter the invitation email notification text
+ * Filters the group invitation email message content.
  *
- * BP's invitation notification text assumes that the inviter and invitee are
- * friends. This isn't always the case with Invite Anyone. This function
- * detects whether a swap is necessary, and if so, makes it happen.
+ * This function modifies the invitation email notification text
+ * when the inviter and invitee are not friends. It provides a
+ * more appropriate message that doesn't assume friendship.
  *
  * @since 1.0.22
+ *
+ * @param string $message      The original email message.
+ * @param object $group        The group object being invited to.
+ * @param string $inviter_name The name of the user sending the invitation.
+ * @param string $inviter_link The URL to the inviter's profile.
+ * @param string $invites_link The URL to view group invites.
+ * @param string $group_link   The URL to the group.
+ *
+ * @return string The modified email message.
  */
 function invite_anyone_group_invite_email_message( $message, $group, $inviter_name, $inviter_link, $invites_link, $group_link ) {
 	// Make sure the check happens again fresh next time around
@@ -723,9 +1073,17 @@ To view %5$s\'s profile visit: %6$s
 }
 
 /**
- * Wrapper for wp_is_large_network() that supports non-MS.
+ * Determines if the current network is considered large for user queries.
+ *
+ * This function is a wrapper for wp_is_large_network() that supports
+ * non-multisite installations. It checks if there are more than 10,000
+ * users in the system and caches the result for performance.
  *
  * @since 1.1.2
+ *
+ * @global wpdb $wpdb WordPress database abstraction object.
+ *
+ * @return bool True if the network is considered large, false otherwise.
  */
 function invite_anyone_is_large_network() {
 	if ( function_exists( 'wp_is_large_network' ) ) {
