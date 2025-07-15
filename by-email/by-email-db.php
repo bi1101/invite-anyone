@@ -115,6 +115,7 @@ class Invite_Anyone_Schema {
 						0 => 'ia_invitation',
 						1 => 'ia_invitations',
 					),
+					'map_meta_cap'    => true,
 				),
 				$this
 			)
@@ -226,6 +227,10 @@ class Invite_Anyone_Schema {
 		if ( version_compare( $this->db_version, '1.4.0', '<' ) ) {
 			add_action( 'wp_loaded', array( $this, 'upgrade_1_4_0' ) );
 		}
+
+		if ( version_compare( $this->db_version, '1.4.11', '<' ) ) {
+			add_action( 'wp_loaded', array( $this, 'upgrade_1_4_11' ) );
+		}
 	}
 
 	/**
@@ -307,6 +312,18 @@ class Invite_Anyone_Schema {
 	 */
 	public function upgrade_1_4_0() {
 		invite_anyone_install_emails( true );
+	}
+
+	/**
+	 * Upgrade for 1.4.11 - Migrate to meta-based email storage
+	 *
+	 * @since 1.4.11
+	 */
+	public function upgrade_1_4_11() {
+		// Run the migration in the background to avoid timeouts.
+		if ( ! wp_next_scheduled( 'invite_anyone_migrate_to_meta_emails' ) ) {
+			wp_schedule_single_event( time() + 10, 'invite_anyone_migrate_to_meta_emails' );
+		}
 	}
 }
 
@@ -428,9 +445,12 @@ class Invite_Anyone_Invitation {
 		// Save a meta item about whether this is a CloudSponge email
 		update_post_meta( $this->id, 'bp_ia_is_cloudsponge', $is_cloudsponge ? __( 'Yes', 'invite-anyone' ) : __( 'No', 'invite-anyone' ) );
 
+		// Store email as meta for easier sorting and querying.
+		update_post_meta( $this->id, 'invitee_email', $invitee_email );
+
 		// Now set up the taxonomy terms
 
-		// Invitee
+		// Invitee (keep for backward compatibility and filtering)
 		wp_set_post_terms( $this->id, $invitee_email, $this->invitee_tax_name );
 
 		// Groups included in the invitation
@@ -488,7 +508,10 @@ class Invite_Anyone_Invitation {
 
 		// Backward compatibility, and to keep the URL args clean
 		if ( 'email' === $orderby ) {
-			$orderby = $this->invitee_tax_name;
+			$orderby = 'invitee_email_meta';
+		} elseif ( 'ia_invitees' === $orderby ) {
+			// Use meta-based sorting instead of problematic global filters.
+			$orderby = 'invitee_email_meta';
 		} elseif ( 'date_joined' === $orderby || 'accepted' === $orderby ) {
 			$orderby       = 'meta_value';
 			$r['meta_key'] = 'bp_ia_accepted';
@@ -497,35 +520,6 @@ class Invite_Anyone_Invitation {
 		if ( ! $posts_per_page && ! $paged ) {
 			$r['posts_per_page'] = '10';
 			$r['paged']          = '1';
-		}
-
-		// Todo: move all of this business to metadata
-		if ( 'ia_invitees' === $orderby ) {
-			// Filtering the query so that it's possible to sort by taxonomy terms
-			// This is not a recommended technique, as it's likely to break
-			add_filter( 'posts_fields', array( $this, 'filter_fields_emails' ), 10 );
-			add_filter( 'posts_join_paged', array( $this, 'filter_join_emails' ), 10 );
-			add_filter( 'posts_orderby', array( $this, 'filter_orderby_emails' ), 10 );
-
-			$this->email_order = $order;
-
-			// Limitations in the WP_Tax_Query class mean I have to assemble a tax term
-			// list first
-			$emails = get_terms(
-				[
-					'taxonomy' => $this->invitee_tax_name,
-					'fields'   => 'name',
-				]
-			);
-
-			$r['tax_query'] = array(
-				array(
-					'taxonomy' => $this->invitee_tax_name,
-					'terms'    => $emails,
-					'field'    => 'slug',
-					'operator' => 'IN',
-				),
-			);
 		}
 
 		// Let plugins stop this process if they want
@@ -541,7 +535,26 @@ class Invite_Anyone_Invitation {
 			'tax_query'   => array(),
 		);
 
+		// Handle email-based sorting with meta queries.
+		if ( 'invitee_email_meta' === $orderby ) {
+			$query_post_args['meta_key'] = 'invitee_email';
+			$query_post_args['orderby']  = 'meta_value';
+			$query_post_args['order']    = $order;
+		}
+
+		// Handle email filtering with meta queries (more reliable than taxonomy).
 		if ( ! empty( $r['invitee_email'] ) ) {
+			$query_post_args['meta_query'] = array(
+				array(
+					'key'     => 'invitee_email',
+					'value'   => $r['invitee_email'],
+					'compare' => is_array( $r['invitee_email'] ) ? 'IN' : '=',
+				),
+			);
+		}
+
+		// Keep taxonomy query for backward compatibility if needed.
+		if ( ! empty( $r['invitee_email'] ) && empty( $query_post_args['meta_query'] ) ) {
 			$query_post_args['tax_query']['invitee'] = array(
 				'taxonomy' => $this->invitee_tax_name,
 				'terms'    => (array) $r['invitee_email'],
@@ -566,18 +579,21 @@ class Invite_Anyone_Invitation {
 			}
 		}
 
-		return new WP_Query( $query_post_args );
+		$query = new WP_Query( $query_post_args );
+
+		return $query;
 	}
 
 	/**
 	 * Filters the join section of the query when sorting by invited email address
 	 *
-	 * This is a hack and should be removed. Migrate this data to metadata.
-	 *
+	 * @deprecated 1.4.11 Use meta-based sorting instead.
 	 * @package Invite Anyone
 	 * @since 0.9
 	 */
 	public function filter_join_emails( $join ) {
+		_deprecated_function( __METHOD__, '1.4.11', 'Meta-based email sorting' );
+
 		global $wpdb;
 
 		$join .= "
@@ -592,12 +608,13 @@ class Invite_Anyone_Invitation {
 	/**
 	 * Filters the fields section of the query when sorting by invited email address
 	 *
-	 * This is a hack and should be removed. Migrate this data to metadata.
-	 *
+	 * @deprecated 1.4.11 Use meta-based sorting instead.
 	 * @package Invite Anyone
 	 * @since 0.9
 	 */
 	public function filter_fields_emails( $fields ) {
+		_deprecated_function( __METHOD__, '1.4.11', 'Meta-based email sorting' );
+
 		$fields .= ' ,wp_terms_ia.name, wp_term_taxonomy_ia.term_taxonomy_id';
 
 		return $fields;
@@ -606,12 +623,13 @@ class Invite_Anyone_Invitation {
 	/**
 	 * Filters the orderby section of the query when sorting by invited email address
 	 *
-	 * This is a hack and should be removed. Migrate this data to metadata.
-	 *
+	 * @deprecated 1.4.11 Use meta-based sorting instead.
 	 * @package Invite Anyone
 	 * @since 0.9
 	 */
 	public function filter_orderby_emails( $orderby ) {
+		_deprecated_function( __METHOD__, '1.4.11', 'Meta-based email sorting' );
+
 		$orderby = 'wp_terms_ia.name ' . $this->email_order;
 
 		return $orderby;
@@ -665,6 +683,59 @@ class Invite_Anyone_Invitation {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Migrate existing invitations to use meta-based email storage
+	 *
+	 * This method updates existing invitations that don't have the 'invitee_email' meta
+	 * to include it based on their taxonomy terms.
+	 *
+	 * @package Invite Anyone
+	 * @since 1.4.11
+	 *
+	 * @param int $batch_size Number of invitations to process at once to avoid timeouts.
+	 * @return array Results of the migration process.
+	 */
+	public static function migrate_to_meta_emails( $batch_size = 50 ) {
+		$results = array(
+			'processed' => 0,
+			'updated'   => 0,
+			'errors'    => 0,
+		);
+
+		$invitations = get_posts(
+			array(
+				'post_type'      => apply_filters( 'invite_anyone_post_type_name', 'ia_invites' ),
+				'posts_per_page' => $batch_size,
+				'meta_query'     => array(
+					array(
+						'key'     => 'invitee_email',
+						'compare' => 'NOT EXISTS',
+					),
+				),
+			)
+		);
+
+		foreach ( $invitations as $invitation ) {
+			++$results['processed'];
+
+			$terms = get_the_terms( $invitation->ID, apply_filters( 'invite_anyone_invitee_tax_name', 'ia_invitees' ) );
+
+			if ( $terms && ! is_wp_error( $terms ) ) {
+				$email = $terms[0]->name;
+
+				if ( update_post_meta( $invitation->ID, 'invitee_email', $email ) ) {
+					++$results['updated'];
+				} else {
+					++$results['errors'];
+				}
+			} else {
+				++$results['errors'];
+			}
+		}
+
+		return $results;
 	}
 }
 
@@ -1174,6 +1245,52 @@ function invite_anyone_migration_step() {
 	</div>
 
 	<?php
+}
+
+/**
+ * Scheduled action handler for migrating invitations to meta-based email storage
+ *
+ * @package Invite Anyone
+ * @since 1.4.11
+ */
+function invite_anyone_migrate_to_meta_emails_handler() {
+	$results = Invite_Anyone_Invitation::migrate_to_meta_emails();
+
+	// If there are more invitations to process, schedule another run.
+	if ( $results['processed'] > 0 ) {
+		wp_schedule_single_event( time() + 30, 'invite_anyone_migrate_to_meta_emails' );
+	}
+}
+add_action( 'invite_anyone_migrate_to_meta_emails', 'invite_anyone_migrate_to_meta_emails_handler' );
+
+/**
+ * Manually trigger the migration to meta-based email storage
+ *
+ * This can be called from wp-admin or via WP-CLI to manually run the migration.
+ *
+ * @package Invite Anyone
+ * @since 1.4.11
+ *
+ * @return array Results of the migration process.
+ */
+function invite_anyone_manual_migrate_to_meta_emails() {
+	$total_results = array(
+		'processed' => 0,
+		'updated'   => 0,
+		'errors'    => 0,
+	);
+
+	// Run in batches until all invitations are processed.
+	do {
+		$results = Invite_Anyone_Invitation::migrate_to_meta_emails();
+
+		$total_results['processed'] += $results['processed'];
+		$total_results['updated']   += $results['updated'];
+		$total_results['errors']    += $results['errors'];
+
+	} while ( $results['processed'] > 0 );
+
+	return $total_results;
 }
 
 ?>
