@@ -102,14 +102,19 @@ class Invite_Anyone_Schema {
 			apply_filters(
 				'invite_anyone_post_type_args',
 				array(
-					'label'        => __( 'BuddyPress Invitations', 'invite-anyone' ),
-					'labels'       => $post_type_labels,
-					'public'       => false,
-					'_builtin'     => false,
-					'show_ui'      => $this->show_dashboard_ui(),
-					'hierarchical' => false,
-					'menu_icon'    => plugins_url() . '/invite-anyone/images/smallest_buddypress_icon_ev.png',
-					'supports'     => array( 'title', 'editor', 'custom-fields', 'author' ),
+					'label'           => __( 'BuddyPress Invitations', 'invite-anyone' ),
+					'labels'          => $post_type_labels,
+					'public'          => false,
+					'_builtin'        => false,
+					'show_ui'         => $this->show_dashboard_ui(),
+					'hierarchical'    => false,
+					'menu_icon'       => plugins_url() . '/invite-anyone/images/smallest_buddypress_icon_ev.png',
+					'supports'        => array( 'title', 'editor', 'custom-fields', 'author' ),
+					'show_in_rest'    => true,
+					'capability_type' => array(
+						0 => 'ia_invitation',
+						1 => 'ia_invitations',
+					),
 				),
 				$this
 			)
@@ -144,6 +149,7 @@ class Invite_Anyone_Schema {
 					'hierarchical' => false,
 					'public'       => false,
 					'show_ui'      => true,
+					'show_in_rest' => true,
 				),
 				$this
 			)
@@ -178,6 +184,7 @@ class Invite_Anyone_Schema {
 					'hierarchical' => false,
 					'public'       => false,
 					'show_ui'      => true,
+					'show_in_rest' => true,
 				),
 				$this
 			)
