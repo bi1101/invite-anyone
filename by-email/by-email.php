@@ -1142,7 +1142,7 @@ function invite_anyone_invitation_subject( $returned_message = false ) {
 
 		if ( empty( $iaoptions['default_invitation_subject'] ) ) {
 			// translators: %s is the name of the site.
-			$text = sprintf( __( 'An invitation to join the %s community.', 'invite-anyone' ), $site_name );
+			$text = sprintf( __( 'An invitation to join %s.', 'invite-anyone' ), $site_name );
 		} else {
 			$text = $iaoptions['default_invitation_subject'];
 		}
@@ -1170,7 +1170,7 @@ function invite_anyone_invitation_message( $returned_message = false ) {
 			$text = sprintf(
 				// translators: %s is the name of the site.
 				__(
-					'You have been invited by %%INVITERNAME%% to join the %s community.
+					'You have been invited by %%INVITERNAME%% to join %s.
 
 Visit %%INVITERNAME%%\'s profile at %%INVITERURL%%.',
 					'invite-anyone'
