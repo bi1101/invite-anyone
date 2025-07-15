@@ -288,7 +288,7 @@ function invite_anyone_activate_user( $user_id ) {
 		if ( bp_is_active( 'friends' ) && apply_filters( 'invite_anyone_send_friend_requests_on_acceptance', true ) ) {
 			if ( function_exists( 'friends_add_friend' ) ) {
 				foreach ( $inviters as $inviter ) {
-					friends_add_friend( $inviter, $user_id );
+					friends_add_friend( $inviter, $user_id, true );
 				}
 			}
 		}
