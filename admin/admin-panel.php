@@ -254,7 +254,7 @@ function invite_anyone_settings_setup() {
 	// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	$the_subpage = isset( $_GET['subpage'] ) ? $_GET['subpage'] : 'general-settings';
 
-	register_setting( 'invite_anyone', 'invite_anyone', 'invite_anyone_settings_check' );
+	register_setting( 'invite_anyone', 'invite_anyone', array( 'sanitize_callback' => 'invite_anyone_settings_check' ) );
 
 	switch ( $the_subpage ) {
 		case 'access-control' :
@@ -383,7 +383,7 @@ function invite_anyone_settings_default_invitation_message() {
 }
 
 function invite_anyone_settings_addl_invitation_message() {
-	$email_footer = invite_anyone_process_footer( '[email]' );
+	$email_footer = invite_anyone_process_footer();
 
 	// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	echo apply_filters(

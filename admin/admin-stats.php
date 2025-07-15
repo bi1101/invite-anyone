@@ -286,8 +286,8 @@ class Invite_Anyone_Stats {
 	 * @package Invite Anyone
 	 * @since 0.9
 	 *
-	 * @param str $where Where clause from WP_Query
-	 * @param str $where Where clause with date_sql appended
+	 * @param string $where Where clause from WP_Query
+	 * @param string $where Where clause with date_sql appended
 	 */
 	public function where_filter( $where ) {
 		$where .= $this->date_sql;
