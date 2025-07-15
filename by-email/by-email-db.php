@@ -619,7 +619,7 @@ class Invite_Anyone_Invitation {
 	 * @param array $args
 	 */
 	public function mark_accepted() {
-		update_post_meta( $this->id, 'bp_ia_accepted', $args['post_modified'] );
+		update_post_meta( $this->id, 'bp_ia_accepted', gmdate( 'Y-m-d H:i:s' ) );
 
 		return true;
 	}
@@ -668,10 +668,10 @@ class Invite_Anyone_Invitation {
  * @since {@internal Version Unknown}
  *
  * @param int $inviter_id
- * @param str $email The email address of the individual receiving the invitation
- * @param str $message The content of the email message
+ * @param string $email The email address of the individual receiving the invitation
+ * @param string $message The content of the email message
  * @param array $groups An array of group ids that the invitation invites the user to join
- * @param str $subject Optional The subject line of the email
+ * @param string $subject Optional The subject line of the email
  * @param bool $is_cloudsponge Did this email address originate with CloudSponge?
  */
 function invite_anyone_record_invitation( $inviter_id, $email, $message, $groups, $subject = false, $is_cloudsponge = false ) {
@@ -703,8 +703,8 @@ function invite_anyone_record_invitation( $inviter_id, $email, $message, $groups
  * @since {@internal Version Unknown}
  *
  * @param int $inviter_id
- * @param str $orderby Optional The column being ordered by
- * @param str $order Optional ASC or DESC
+ * @param string $orderby Optional The column being ordered by
+ * @param string $order Optional ASC or DESC
  */
 function invite_anyone_get_invitations_by_inviter_id( $inviter_id, $orderby = false, $order = false, $posts_per_page = false, $paged = false ) {
 	$args = array(
@@ -726,7 +726,7 @@ function invite_anyone_get_invitations_by_inviter_id( $inviter_id, $orderby = fa
  * @package Invite Anyone
  * @since {@internal Version Unknown}
  *
- * @param str $email The email address being checked
+ * @param string $email The email address being checked
  */
 function invite_anyone_get_invitations_by_invited_email( $email ) {
 	// hack to make sure that gmail + email addresses work
@@ -852,7 +852,7 @@ function invite_anyone_clear_sent_invite( $args ) {
  * @package Invite Anyone
  * @since {@internal Version Unknown}
  *
- * @param str $email The email address being checked
+ * @param string $email The email address being checked
  */
 function invite_anyone_mark_as_joined( $email ) {
 	$invites = invite_anyone_get_invitations_by_invited_email( $email );
@@ -875,7 +875,7 @@ function invite_anyone_mark_as_joined( $email ) {
  * @package Invite Anyone
  * @since {@internal Version Unknown}
  *
- * @param str $email The email address being checked
+ * @param string $email The email address being checked
  */
 function invite_anyone_check_is_opt_out( $email ) {
 	$email = str_replace( ' ', '+', $email );
@@ -904,7 +904,7 @@ function invite_anyone_check_is_opt_out( $email ) {
  * @package Invite Anyone
  * @since {@internal Version Unknown}
  *
- * @param str $email The email address being checked
+ * @param string $email The email address being checked
  */
 function invite_anyone_mark_as_opt_out( $email ) {
 	$invites = invite_anyone_get_invitations_by_invited_email( $email );
@@ -1006,7 +1006,7 @@ add_action( is_multisite() && function_exists( 'is_network_admin' ) ? 'network_a
  * @since 0.8
  *
  * @see invite_anyone_migration_step()
- * @param str $type 'full' means that it will silently attempt to transfer all records
+ * @param string $type 'full' means that it will silently attempt to transfer all records
  * @param int $start The record id to start with (offset)
  */
 function invite_anyone_data_migration( $type = 'full', $start = 0 ) {

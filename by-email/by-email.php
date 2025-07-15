@@ -533,7 +533,7 @@ function invite_anyone_catch_clear() {
 			}
 		}
 
-		setcookie( 'invite-anyone', null, -1, '/' );
+		setcookie( 'invite-anyone', '', -1, '/' );
 	}
 
 	if ( isset( $_GET['clear'] ) ) {
@@ -1320,7 +1320,7 @@ function invite_anyone_allowed_domains() {
  * @package Invite Anyone
  * @since 0.8
  *
- * @return str $tax_name
+ * @return string $tax_name
  */
 function invite_anyone_get_invitee_tax_name() {
 	global $bp;
@@ -1340,7 +1340,7 @@ function invite_anyone_get_invitee_tax_name() {
  * @package Invite Anyone
  * @since 0.8
  *
- * @return str $tax_name
+ * @return string $tax_name
  */
 function invite_anyone_get_invited_groups_tax_name() {
 	global $bp;
@@ -1364,7 +1364,7 @@ function invite_anyone_format_date( $date ) {
  * @package Invite Anyone
  * @since 0.8.8
  *
- * @param str $address_string The raw string from the input box
+ * @param string $address_string The raw string from the input box
  * @return array $emails An array of addresses
  */
 function invite_anyone_parse_addresses( $address_string ) {
