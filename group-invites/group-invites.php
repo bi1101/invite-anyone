@@ -132,7 +132,7 @@ class BP_Invite_Anyone extends BP_Group_Extension {
 			echo '<div id="message" class="updated"><p>' . esc_html__( 'Group invites sent.', 'invite-anyone' ) . '</p></div>';
 		}
 
-		invite_anyone_create_screen_content( 'invite' );
+		invite_anyone_create_screen_content();
 	}
 
 	public function create_screen( $group_id = null ) {
@@ -143,7 +143,7 @@ class BP_Invite_Anyone extends BP_Group_Extension {
 			return false;
 		}
 
-		invite_anyone_create_screen_content( 'create' );
+		invite_anyone_create_screen_content();
 
 		wp_nonce_field( 'groups_create_save_' . $this->slug );
 	}
@@ -694,7 +694,7 @@ add_filter( 'groups_notification_group_invites_to', 'invite_anyone_group_invite_
  */
 function invite_anyone_group_invite_email_message( $message, $group, $inviter_name, $inviter_link, $invites_link, $group_link ) {
 	// Make sure the check happens again fresh next time around
-	remove_action( 'groups_notification_group_invites_message', 'invite_anyone_group_invite_email_message', 10, 6 );
+	remove_action( 'groups_notification_group_invites_message', 'invite_anyone_group_invite_email_message', 10 );
 
 	$message = sprintf(
 		// translators: 1. Inviter name, 2. Group name, 3. Invites link, 4. Group link, 5. Inviter name, 6. Inviter link
