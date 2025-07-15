@@ -320,8 +320,7 @@ function invite_anyone_activate_user( $user_id ) {
 					'inviter_id' => $inviter_id,
 				);
 
-				groups_invite_user( $args );
-				groups_send_invites( $inviter_id, $group_id );
+				groups_join_group( $group_id, $user_id );
 			}
 		}
 	}
