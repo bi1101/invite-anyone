@@ -2108,14 +2108,13 @@ function invite_anyone_process_invitations( $data ) {
 				wp_mail( $to, $subject, $message );
 			}
 
-			// Clear the recipient name for the next email
-			$invite_anyone_current_recipient_name = '';
-
 			// Determine whether this address came from CloudSponge
 			$is_cloudsponge = isset( $cs_emails ) && in_array( $email, $cs_emails, true );
 
-			invite_anyone_record_invitation( $bp->loggedin_user->id, $email, $message, $groups, $subject, $is_cloudsponge );
+			invite_anyone_record_invitation( $bp->loggedin_user->id, $email, $message, $groups, $subject, $is_cloudsponge, $recipient_name );
 
+			// Clear the recipient name for the next email
+			$invite_anyone_current_recipient_name = '';
 			do_action( 'sent_email_invite', $bp->loggedin_user->id, $email, $groups );
 
 			unset( $message, $to );

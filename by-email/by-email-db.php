@@ -541,6 +541,7 @@ class Invite_Anyone_Invitation {
 	 *     @type string       $date_created   Date when the invitation was created. Default current time.
 	 *     @type string       $date_modified  Date when the invitation was last modified. Default current time.
 	 *     @type bool         $is_cloudsponge Whether the email came from CloudSponge. Default false.
+	 *     @type string|false $recipient_name Name of the invitation recipient. Default false.
 	 * }
 	 *
 	 * @return int|false The ID of the created invitation post on success, false on failure.
@@ -559,6 +560,7 @@ class Invite_Anyone_Invitation {
 				'date_created'   => bp_core_current_time( false ),
 				'date_modified'  => bp_core_current_time( false ),
 				'is_cloudsponge' => false,
+				'recipient_name' => false,
 			)
 		);
 
@@ -573,6 +575,7 @@ class Invite_Anyone_Invitation {
 		$date_created   = $r['date_created'];
 		$date_modified  = $r['date_modified'];
 		$is_cloudsponge = $r['is_cloudsponge'];
+		$recipient_name = $r['recipient_name'];
 
 		// Let plugins stop this process if they want
 		do_action( 'invite_anyone_before_invitation_create', $r, $args );
@@ -617,6 +620,11 @@ class Invite_Anyone_Invitation {
 
 		// Store email as meta for easier sorting and querying.
 		update_post_meta( $this->id, 'invitee_email', $invitee_email );
+
+		// Store recipient name as meta for easier sorting and querying.
+		if ( ! empty( $recipient_name ) ) {
+			update_post_meta( $this->id, 'recipient_name', $recipient_name );
+		}
 
 		// Now set up the taxonomy terms
 
@@ -704,6 +712,9 @@ class Invite_Anyone_Invitation {
 		} elseif ( 'ia_invitees' === $orderby ) {
 			// Use meta-based sorting instead of problematic global filters.
 			$orderby = 'invitee_email_meta';
+		} elseif ( 'recipient_name' === $orderby ) {
+			$orderby       = 'meta_value';
+			$r['meta_key'] = 'recipient_name';
 		} elseif ( 'date_joined' === $orderby || 'accepted' === $orderby ) {
 			$orderby       = 'meta_value';
 			$r['meta_key'] = 'bp_ia_accepted';
@@ -991,10 +1002,11 @@ class Invite_Anyone_Invitation {
  * @param array        $groups         An array of group IDs that the invitation invites the user to join.
  * @param string|false $subject        Optional. The subject line of the invitation email. Default false.
  * @param bool         $is_cloudsponge Optional. Whether this email address originated from CloudSponge. Default false.
+ * @param string|false $recipient_name Optional. The name of the invitation recipient. Default false.
  *
  * @return int|false The ID of the created invitation on success, false on failure.
  */
-function invite_anyone_record_invitation( $inviter_id, $email, $message, $groups, $subject = false, $is_cloudsponge = false ) {
+function invite_anyone_record_invitation( $inviter_id, $email, $message, $groups, $subject = false, $is_cloudsponge = false, $recipient_name = false ) {
 
 	// hack to make sure that gmail + email addresses work
 	$email = str_replace( '+', '.PLUSSIGN.', $email );
@@ -1006,6 +1018,7 @@ function invite_anyone_record_invitation( $inviter_id, $email, $message, $groups
 		'subject'        => $subject,
 		'groups'         => $groups,
 		'is_cloudsponge' => $is_cloudsponge,
+		'recipient_name' => $recipient_name,
 	);
 
 	$invite = new Invite_Anyone_Invitation();

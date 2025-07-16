@@ -899,7 +899,8 @@ class Invite_Anyone_REST_Controller extends WP_REST_Controller {
 						$filtered_message,
 						$groups,
 						$filtered_subject,
-						false // is_cloudsponge
+						false, // is_cloudsponge
+						$name
 					);
 
 					if ( $invitation_id ) {
