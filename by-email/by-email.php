@@ -847,9 +847,12 @@ function invite_anyone_screen_one_content() {
 	);
 
 	?>
+
+	<div class="bp-invites-container">
+	<div class="bb-bp-invites-content">
 	<form id="invite-anyone-by-email" action="<?php echo esc_url( $form_action ); ?>" method="post">
 
-	<h4><?php esc_html_e( 'Invite New Members', 'invite-anyone' ); ?></h4>
+	<h2 class="screen-heading general-settings-screen"><?php esc_html_e( 'Invite New Members', 'invite-anyone' ); ?></h2>
 
 	<?php
 
@@ -889,127 +892,149 @@ function invite_anyone_screen_one_content() {
 	}
 	?>
 
-	<p id="welcome-message"><?php echo esc_html( wp_kses_post( $welcome_message ) ); ?></p>
+	<p class="info invite-info"><?php echo esc_html( wp_kses_post( $welcome_message ) ); ?></p>
 
-	<ol id="invite-anyone-steps">
+	<?php if ( ! empty( $returned_data['error_message'] ) ) : ?>
+		<div class="invite-anyone-error error">
+			<p><?php echo wp_kses_post( $returned_data['error_message'] ); ?></p>
+		</div>
+	<?php endif ?>
 
-		<li>
-			<?php if ( ! empty( $returned_data['error_message'] ) ) : ?>
-				<div class="invite-anyone-error error">
-					<p><?php echo wp_kses_post( $returned_data['error_message'] ); ?></p>
-				</div>
-			<?php endif ?>
+	<?php
+	if ( invite_anyone_allowed_domains() ) :
+		?>
+		<p class="description"><?php esc_html_e( 'You can only invite people whose email addresses end in one of the following domains:', 'invite-anyone' ); ?> <?php echo esc_html( invite_anyone_allowed_domains() ); ?></p><?php endif; ?>
 
-			<div class="manual-email">
-				<label for="invite-anyone-email-addresses">
-					<?php esc_html_e( 'Enter email addresses below, one per line.', 'invite-anyone' ); ?>
-				</label>
+	<?php $max_no_invites = invite_anyone_max_invites(); ?>
+	<?php if ( false !== $max_no_invites ) : ?>
+		<p class="description">
+			<?php
+			echo esc_html(
+				sprintf(
+					// translators: %s is the maximum number of invites
+					_n(
+						'You can invite a maximum of %s person at a time.',
+						'You can invite a maximum of %s people at a time.',
+						$max_no_invites,
+						'invite-anyone'
+					),
+					number_format_i18n( $max_no_invites )
+				)
+			);
+			?>
+		</p>
+	<?php endif ?>
 
+	<?php
+	$error_data = array();
+	if ( is_array( $returned_data ) && isset( $returned_data['error_emails'] ) ) {
+		$error_data['error_emails'] = $returned_data['error_emails'];
+	}
+	if ( is_array( $returned_data ) && isset( $returned_data['error_names'] ) ) {
+		$error_data['error_names'] = $returned_data['error_names'];
+	}
+
+	// For backward compatibility, if we only have error_emails, pass it directly
+	if ( empty( $error_data ) && is_array( $returned_data ) && isset( $returned_data['error_emails'] ) ) {
+		$error_data = $returned_data['error_emails'];
+	}
+	?>
+
+	<?php invite_anyone_email_fields( $error_data ); ?>
+
+	<?php /* invite_anyone_after_addresses gets $iaoptions so that Cloudsponge etc can tell whether certain components are activated, without an additional lookup */ ?>
+	<?php do_action( 'invite_anyone_after_addresses', $iaoptions ); ?>
+
+	<?php if ( 'yes' === $iaoptions['subject_is_customizable'] ) : ?>
+		<label for="invite-anyone-custom-subject"><?php esc_html_e( 'Customize the text of the invitation subject.', 'invite-anyone' ); ?></label>
+		<textarea name="invite_anyone_custom_subject" id="invite-anyone-custom-subject" rows="5" cols="10" ><?php echo esc_textarea( invite_anyone_invitation_subject( $returned_subject, $from_group ) ); ?></textarea>
+		<input type="hidden" value="<?php esc_attr_e( 'Are you sure you want to send the invite without a subject?', 'invite-anyone' ); ?>" name="error-message-empty-subject-field" id="error-message-empty-subject-field">
+	<?php else : ?>
+		<input type="hidden" id="invite-anyone-customised-subject" name="invite_anyone_custom_subject" value="<?php echo esc_attr( invite_anyone_invitation_subject( false, $from_group ) ); ?>" />
+	<?php endif; ?>
+
+	<?php if ( 'yes' === $iaoptions['message_is_customizable'] ) : ?>
+		<label for="invite-anyone-custom-message"><?php esc_html_e( 'Customize the text of the invitation email. A link to register will be sent with the email.', 'invite-anyone' ); ?></label>
+		<?php
+		// Add filters for the editor buttons (if they exist in the theme)
+		if ( function_exists( 'bp_nouveau_btn_invites_mce_buttons' ) ) {
+			add_filter( 'mce_buttons', 'bp_nouveau_btn_invites_mce_buttons', 10, 1 );
+		}
+		if ( function_exists( 'bp_nouveau_send_invite_content_css' ) ) {
+			add_filter( 'tiny_mce_before_init', 'bp_nouveau_send_invite_content_css' );
+		}
+
+		wp_editor(
+			invite_anyone_invitation_message( $returned_message, $from_group ),
+			'invite-anyone-custom-message',
+			array(
+				'textarea_name' => 'invite_anyone_custom_message',
+				'teeny'         => false,
+				'media_buttons' => false,
+				'dfw'           => false,
+				'tinymce'       => true,
+				'quicktags'     => false,
+				'tabindex'      => '3',
+				'textarea_rows' => 5,
+			)
+		);
+
+		// Remove the temporary filters
+		if ( function_exists( 'bp_nouveau_btn_invites_mce_buttons' ) ) {
+			remove_filter( 'mce_buttons', 'bp_nouveau_btn_invites_mce_buttons', 10 );
+		}
+		if ( function_exists( 'bp_nouveau_send_invite_content_css' ) ) {
+			remove_filter( 'tiny_mce_before_init', 'bp_nouveau_send_invite_content_css' );
+		}
+		?>
+		<input type="hidden" value="<?php esc_attr_e( 'Are you sure you want to send the invite without adding a message?', 'invite-anyone' ); ?>" name="error-message-empty-body-field" id="error-message-empty-body-field">
+	<?php else : ?>
+		<input type="hidden" name="invite_anyone_custom_message" value="<?php echo esc_attr( invite_anyone_invitation_message( false, $from_group ) ); ?>" />
+	<?php endif; ?>
+
+	<?php if ( 'yes' === $iaoptions['subject_is_customizable'] && 'yes' === $iaoptions['message_is_customizable'] ) : ?>
+		<input type="hidden" value="<?php esc_attr_e( 'Are you sure you want to send the invite without adding a subject and message?', 'invite-anyone' ); ?>" name="error-message-empty-subject-body-field" id="error-message-empty-subject-body-field">
+	<?php endif; ?>
+
+	<?php if ( invite_anyone_are_groups_running() ) : ?>
+		<?php if ( 'yes' === $iaoptions['can_send_group_invites_email'] && bp_has_groups( 'per_page=10000&type=alphabetical&user_id=' . bp_loggedin_user_id() ) ) : ?>
+		<fieldset>
+			<legend><?php esc_html_e( '(optional) Select some groups. Invitees will receive invitations to these groups when they join the site.', 'invite-anyone' ); ?></legend>
+			<div id="invite-anyone-group-list">
 				<?php
-				if ( invite_anyone_allowed_domains() ) :
+				while ( bp_groups() ) :
+					bp_the_group();
 					?>
-					<p class="description"><?php esc_html_e( 'You can only invite people whose email addresses end in one of the following domains:', 'invite-anyone' ); ?> <?php echo esc_html( invite_anyone_allowed_domains() ); ?></p><?php endif; ?>
+					<?php
 
-				<?php $max_no_invites = invite_anyone_max_invites(); ?>
-				<?php if ( false !== $max_no_invites ) : ?>
-					<p class="description">
-						<?php
-						echo esc_html(
-							sprintf(
-								// translators: %s is the maximum number of invites
-								_n(
-									'You can invite a maximum of %s person at a time.',
-									'You can invite a maximum of %s people at a time.',
-									$max_no_invites,
-									'invite-anyone'
-								),
-								number_format_i18n( $max_no_invites )
-							)
-						);
-						?>
+					// Enforce per-group invitation settings.
+					if ( ! bp_groups_user_can_send_invites( bp_get_group_id() ) || 'anyone' !== invite_anyone_group_invite_access_test( bp_get_group_id() ) ) {
+						continue;
+					}
+
+					?>
+					<p class="checkbox bp-checkbox-wrap">
+						<input type="checkbox" name="invite_anyone_groups[]" id="invite_anyone_groups-<?php echo esc_attr( bp_get_group_id() ); ?>" class="bs-styled-checkbox" value="<?php echo esc_attr( bp_get_group_id() ); ?>" <?php checked( bp_get_group_id() === (int) $from_group || array_search( bp_get_group_id(), $returned_groups, true ) ); ?> />
+						<label for="invite_anyone_groups-<?php echo esc_attr( bp_get_group_id() ); ?>" class="invite-anyone-group-name"><?php bp_group_avatar_mini(); ?> <span><?php bp_group_name(); ?></span></label>
 					</p>
-				<?php endif ?>
+				<?php endwhile; ?>
 
-				<?php
-				$error_emails = is_array( $returned_data ) && isset( $returned_data['error_emails'] ) ? $returned_data['error_emails'] : array();
-				?>
-
-				<?php invite_anyone_email_fields( $error_emails ); ?>
 			</div>
-
-			<?php /* invite_anyone_after_addresses gets $iaoptions so that Cloudsponge etc can tell whether certain components are activated, without an additional lookup */ ?>
-			<?php do_action( 'invite_anyone_after_addresses', $iaoptions ); ?>
-
-		</li>
-
-		<li>
-			<?php if ( 'yes' === $iaoptions['subject_is_customizable'] ) : ?>
-				<label for="invite-anyone-custom-subject"><?php esc_html_e( '(optional) Customize the subject line of the invitation email.', 'invite-anyone' ); ?></label>
-					<textarea name="invite_anyone_custom_subject" id="invite-anyone-custom-subject" rows="15" cols="10" ><?php echo esc_textarea( invite_anyone_invitation_subject( $returned_subject, $from_group ) ); ?></textarea>
-			<?php else : ?>
-				<strong><?php esc_html_e( 'Subject:', 'invite-anyone' ); ?></strong> <?php echo esc_html( invite_anyone_invitation_subject( $returned_subject, $from_group ) ); ?>
-
-				<input type="hidden" id="invite-anyone-customised-subject" name="invite_anyone_custom_subject" value="<?php echo esc_attr( invite_anyone_invitation_subject( false, $from_group ) ); ?>" />
-			<?php endif; ?>
-		</li>
-
-		<li>
-			<?php if ( 'yes' === $iaoptions['message_is_customizable'] ) : ?>
-				<label for="invite-anyone-custom-message"><?php esc_html_e( '(optional) Customize the text of the invitation.', 'invite-anyone' ); ?></label>
-				<p class="description"><?php esc_html_e( 'The message will also contain a custom footer containing links to accept the invitation or opt out of further email invitations from this site.', 'invite-anyone' ); ?></p>
-					<textarea name="invite_anyone_custom_message" id="invite-anyone-custom-message" cols="40" rows="10"><?php echo esc_textarea( invite_anyone_invitation_message( $returned_message, $from_group ) ); ?></textarea>
-			<?php else : ?>
-				<label for="invite-anyone-custom-message"><?php esc_html_e( 'Message:', 'invite-anyone' ); ?></label>
-					<textarea name="invite_anyone_custom_message" id="invite-anyone-custom-message" disabled="disabled"><?php echo esc_textarea( invite_anyone_invitation_message( $returned_message, $from_group ) ); ?></textarea>
-
-				<input type="hidden" name="invite_anyone_custom_message" value="<?php echo esc_attr( invite_anyone_invitation_message( false, $from_group ) ); ?>" />
-			<?php endif; ?>
-
-		</li>
-
-		<?php if ( invite_anyone_are_groups_running() ) : ?>
-			<?php if ( 'yes' === $iaoptions['can_send_group_invites_email'] && bp_has_groups( 'per_page=10000&type=alphabetical&user_id=' . bp_loggedin_user_id() ) ) : ?>
-			<li>
-				<fieldset>
-					<legend><?php esc_html_e( '(optional) Select some groups. Invitees will receive invitations to these groups when they join the site.', 'invite-anyone' ); ?></legend>
-					<ul id="invite-anyone-group-list">
-						<?php
-						while ( bp_groups() ) :
-							bp_the_group();
-							?>
-							<?php
-
-							// Enforce per-group invitation settings
-							if ( ! bp_groups_user_can_send_invites( bp_get_group_id() ) || 'anyone' !== invite_anyone_group_invite_access_test( bp_get_group_id() ) ) {
-								continue;
-							}
-
-							?>
-							<li>
-							<input type="checkbox" name="invite_anyone_groups[]" id="invite_anyone_groups-<?php echo esc_attr( bp_get_group_id() ); ?>" value="<?php echo esc_attr( bp_get_group_id() ); ?>" <?php checked( bp_get_group_id() === (int) $from_group || array_search( bp_get_group_id(), $returned_groups, true ) ); ?> />
-
-							<label for="invite_anyone_groups-<?php echo esc_attr( bp_get_group_id() ); ?>" class="invite-anyone-group-name"><?php bp_group_avatar_mini(); ?> <span><?php bp_group_name(); ?></span></label>
-
-							</li>
-						<?php endwhile; ?>
-
-					</ul>
-				</fieldset>
-			</li>
-			<?php endif; ?>
-
+		</fieldset>
 		<?php endif; ?>
 
-		<?php wp_nonce_field( 'invite_anyone_send_by_email', 'ia-send-by-email-nonce' ); ?>
-		<?php do_action( 'invite_anyone_addl_fields' ); ?>
+	<?php endif; ?>
 
-	</ol>
+	<?php wp_nonce_field( 'invite_anyone_send_by_email', 'ia-send-by-email-nonce' ); ?>
+	<?php do_action( 'invite_anyone_addl_fields' ); ?>
 
 	<div class="submit">
-		<input type="submit" name="invite-anyone-submit" id="invite-anyone-submit" value="<?php esc_attr_e( 'Send Invites', 'invite-anyone' ); ?> " />
+		<input type="submit" name="invite-anyone-submit" id="invite-anyone-submit" class="button submit" value="<?php esc_attr_e( 'Send Invites', 'invite-anyone' ); ?>" />
 	</div>
 
 	</form>
+	</div>
+	</div>
 	<?php
 }
 
@@ -1272,20 +1297,105 @@ function invite_anyone_screen_two_content() {
 }
 
 /**
- * Displays the field where email addresses are entered on the Send Invites page
+ * Displays the table where recipient names and email addresses are entered on the Send Invites page
  *
- * In version 0.8, this field was changed to be a textarea rather than individual fields.
+ * Updated to use BuddyBoss-style table interface with individual name and email fields.
  *
  * @package Invite Anyone
  *
- * @param array $returned_emails Optional. Emails returned because of a processing error
+ * @param array $returned_data Optional. Data returned because of a processing error
  */
-function invite_anyone_email_fields( $returned_emails = false ) {
-	if ( is_array( $returned_emails ) ) {
-		$returned_emails = implode( "\n", $returned_emails );
+function invite_anyone_email_fields( $returned_data = false ) {
+	// Handle returned data structure
+	$returned_emails = array();
+	$returned_names  = array();
+
+	if ( is_array( $returned_data ) && isset( $returned_data['error_emails'] ) ) {
+		$returned_emails = $returned_data['error_emails'];
+	} elseif ( is_array( $returned_data ) ) {
+		$returned_emails = $returned_data;
 	}
+
+	// Get returned names if available
+	if ( is_array( $returned_data ) && isset( $returned_data['error_names'] ) ) {
+		$returned_names = $returned_data['error_names'];
+	}
+
 	?>
-	<textarea name="invite_anyone_email_addresses" class="invite-anyone-email-addresses" id="invite-anyone-email-addresses"><?php echo esc_textarea( $returned_emails ); ?></textarea>
+	<table class="invite-settings bp-tables-user" id="member-invites-table">
+		<thead>
+		<tr>
+			<th class="title"><?php esc_html_e( 'Recipient Name', 'invite-anyone' ); ?></th>
+			<th class="title"><?php esc_html_e( 'Recipient Email', 'invite-anyone' ); ?></th>
+			<th class="title actions"></th>
+		</tr>
+		</thead>
+		<tbody>
+		<?php
+		// Determine how many rows to show initially
+		$initial_rows = 1;
+		if ( ! empty( $returned_emails ) ) {
+			$initial_rows = max( count( $returned_emails ), 1 );
+		}
+
+		for ( $i = 0; $i < $initial_rows; $i++ ) {
+			$name_value  = isset( $returned_names[ $i ] ) ? $returned_names[ $i ] : '';
+			$email_value = isset( $returned_emails[ $i ] ) ? $returned_emails[ $i ] : '';
+			?>
+			<tr>
+				<td class="field-name">
+					<label for="invitee_<?php echo $i; ?>_name" class="screen-reader-text"><?php esc_html_e( 'Recipient Name', 'invite-anyone' ); ?></label>
+					<input type="text" 
+							name="invitee[<?php echo $i; ?>]" 
+							id="invitee_<?php echo $i; ?>_name" 
+							value="<?php echo esc_attr( $name_value ); ?>" 
+							class="invites-input" 
+							placeholder="<?php esc_attr_e( 'Enter recipient name', 'invite-anyone' ); ?>"
+							title="<?php esc_attr_e( 'Enter the name of the person you want to invite', 'invite-anyone' ); ?>"
+							aria-label="<?php esc_attr_e( 'Recipient Name', 'invite-anyone' ); ?>" />
+				</td>
+				<td class="field-email">
+					<label for="email_<?php echo $i; ?>_email" class="screen-reader-text"><?php esc_html_e( 'Recipient Email', 'invite-anyone' ); ?></label>
+					<input type="email" 
+							name="email[<?php echo $i; ?>]" 
+							id="email_<?php echo $i; ?>_email" 
+							value="<?php echo esc_attr( $email_value ); ?>" 
+							class="invites-input" 
+							placeholder="<?php esc_attr_e( 'Enter email address', 'invite-anyone' ); ?>"
+							title="<?php esc_attr_e( 'Enter the email address of the person you want to invite', 'invite-anyone' ); ?>"
+							aria-label="<?php esc_attr_e( 'Recipient Email Address', 'invite-anyone' ); ?>"
+							required />
+				</td>
+				<td class="field-actions">
+					<span class="field-actions-remove" 
+							title="<?php esc_attr_e( 'Remove this invitation row', 'invite-anyone' ); ?>"
+							aria-label="<?php esc_attr_e( 'Remove row', 'invite-anyone' ); ?>"
+							role="button"
+							tabindex="0">
+						<i class="bb-icon-l bb-icon-times"></i>
+					</span>
+				</td>
+			</tr>
+		<?php } ?>
+		<tr>
+			<td class="field-name" colspan="2"></td>
+			<td class="field-actions-last">
+				<span class="field-actions-add" 
+						title="<?php esc_attr_e( 'Add another invitation row', 'invite-anyone' ); ?>"
+						aria-label="<?php esc_attr_e( 'Add new row', 'invite-anyone' ); ?>"
+						role="button"
+						tabindex="0">
+					<i class="bb-icon-l bb-icon-plus"></i>
+				</span>
+			</td>
+		</tr>
+		</tbody>
+	</table>
+	
+	<!-- Hidden fields for error messages -->
+	<input type="hidden" value="<?php _e( 'Enter a valid email address', 'invite-anyone' ); ?>" name="error-message-invalid-email-address-field" id="error-message-invalid-email-address-field">
+	<input type="hidden" value="<?php _e( 'Enter name', 'invite-anyone' ); ?>" name="error-message-empty-name-field" id="error-message-empty-name-field">
+	<input type="hidden" value="<?php _e( 'Please fill out all required fields to invite a new member.', 'invite-anyone' ); ?>" name="error-message-required-field" id="error-message-required-field">
 	<?php
 }
 
@@ -1733,18 +1843,55 @@ function invite_anyone_process_invitations( $data ) {
 	$options = invite_anyone_options();
 
 	$emails = [];
-	// Parse out the individual email addresses
+	$names  = [];
+
+	// Handle both old textarea format and new table format
 	if ( ! empty( $data['invite_anyone_email_addresses'] ) ) {
+		// Old textarea format - parse addresses
 		$emails = invite_anyone_parse_addresses( $data['invite_anyone_email_addresses'] );
+	} elseif ( ! empty( $data['email'] ) && is_array( $data['email'] ) ) {
+		// New table format - process email and name arrays
+		foreach ( $data['email'] as $index => $email ) {
+			// Handle nested arrays - get the actual string value
+			$email_value = '';
+			$name_value  = '';
+
+			// Extract email value safely
+			if ( is_array( $email ) ) {
+				$email_value = isset( $email[0] ) ? (string) $email[0] : '';
+			} else {
+				$email_value = (string) $email;
+			}
+
+			// Extract name value safely
+			if ( isset( $data['invitee'][ $index ] ) ) {
+				if ( is_array( $data['invitee'][ $index ] ) ) {
+					$name_value = isset( $data['invitee'][ $index ][0] ) ? (string) $data['invitee'][ $index ][0] : '';
+				} else {
+					$name_value = (string) $data['invitee'][ $index ];
+				}
+			}
+
+			// Trim only if we have strings
+			$email_value = trim( $email_value );
+			$name_value  = trim( $name_value );
+
+			if ( ! empty( $email_value ) && is_email( $email_value ) ) {
+				$emails[] = $email_value;
+				$names[]  = $name_value;
+			}
+		}
 	}
 
 	// Filter the email addresses so that plugins can have a field day
 	$emails = apply_filters( 'invite_anyone_submitted_email_addresses', $emails, $data );
+	$names  = apply_filters( 'invite_anyone_submitted_names', $names, $data );
 
 	// Set up a wrapper for any data to return to the Send Invites screen in case of error
 	$returned_data = array(
 		'error_message' => false,
 		'error_emails'  => array(),
+		'error_names'   => array(),
 		'groups'        => isset( $data['invite_anyone_groups'] ) ? $data['invite_anyone_groups'] : '',
 	);
 

@@ -94,6 +94,10 @@ label span.disabled-subject {
 	font-size: 11px;
 }
 
+#invite-anyone-group-list .bs-styled-checkbox:checked + label:after {
+	top: 8px;
+}
+
 #invite-anyone-group-list li img {
 	margin-right: 5px;
 	float: left;
@@ -314,6 +318,24 @@ fieldset {
 }
 .ia-pagination .page-numbers {
 	margin-left: 8px;
+}
+
+#buddypress .bp-invites-container .bb-bp-invites-content {
+	padding: 30px 50px;
+}
+
+/* Screen reader text for accessibility */
+.screen-reader-text {
+	clip: rect(1px, 1px, 1px, 1px);
+	position: absolute !important;
+	height: 1px;
+	width: 1px;
+	overflow: hidden;
+	word-wrap: normal !important;
+}
+
+.invites-input {
+	width: 100%;
 }
 
 /* Tablet and smaller screens */
