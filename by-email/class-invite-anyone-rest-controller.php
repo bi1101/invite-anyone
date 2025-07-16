@@ -185,6 +185,7 @@ class Invite_Anyone_REST_Controller extends WP_REST_Controller {
 						),
 					),
 				),
+				'schema' => array( $this, 'get_send_item_schema' ),
 			)
 		);
 	}
@@ -1097,5 +1098,67 @@ class Invite_Anyone_REST_Controller extends WP_REST_Controller {
 		);
 
 		return $params;
+	}
+
+	/**
+	 * Retrieves the schema for the send_item endpoint.
+	 *
+	 * This method defines the structure and properties of the send invitation
+	 * request and response, which is used for validation and generating documentation.
+	 *
+	 * @since 1.5.0
+	 *
+	 * @return array Send item schema data.
+	 */
+	public function get_send_item_schema() {
+		$schema = array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'send-invitation',
+			'type'       => 'object',
+			'properties' => array(
+				'sent'    => array(
+					'description' => __( 'Array of successfully sent invitations.', 'invite-anyone' ),
+					'type'        => 'array',
+					'items'       => array(
+						'type'       => 'object',
+						'properties' => array(
+							'email'         => array(
+								'description' => __( 'The email address the invitation was sent to.', 'invite-anyone' ),
+								'type'        => 'string',
+								'format'      => 'email',
+							),
+							'invitation_id' => array(
+								'description' => __( 'The ID of the created invitation record.', 'invite-anyone' ),
+								'type'        => 'integer',
+							),
+						),
+					),
+					'context'     => array( 'view' ),
+					'readonly'    => true,
+				),
+				'failed'  => array(
+					'description' => __( 'Array of failed invitation attempts.', 'invite-anyone' ),
+					'type'        => 'array',
+					'items'       => array(
+						'type'       => 'object',
+						'properties' => array(
+							'email'  => array(
+								'description' => __( 'The email address that failed.', 'invite-anyone' ),
+								'type'        => 'string',
+								'format'      => 'email',
+							),
+							'reason' => array(
+								'description' => __( 'The reason why the invitation failed.', 'invite-anyone' ),
+								'type'        => 'string',
+							),
+						),
+					),
+					'context'     => array( 'view' ),
+					'readonly'    => true,
+				),
+			),
+		);
+
+		return $this->add_additional_fields_schema( $schema );
 	}
 }
