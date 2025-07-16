@@ -1073,12 +1073,11 @@ function invite_anyone_screen_two() {
 function invite_anyone_screen_two_content() {
 	global $bp;
 
-	// Load the pagination helper
-	if ( ! class_exists( 'BBG_CPT_Pag' ) ) {
-		require_once BP_INVITE_ANYONE_DIR . 'lib/bbg-cpt-pag.php';
-	}
+	do_action( 'bp_nouveau_member_hook', 'before', 'invites_sent_template' );
 
-	$pagination = new BBG_CPT_Pag();
+	?>
+	<script>window.history.replaceState(null, null, window.location.pathname);</script>
+	<?php
 
 	$inviter_id = bp_loggedin_user_id();
 
@@ -1103,187 +1102,270 @@ function invite_anyone_screen_two_content() {
 	$base_url = invite_anyone_get_user_sent_invites_url( bp_displayed_user_id() );
 
 	?>
+		<div class="bp-invites-container">
+			<div class="bb-bp-invites-content">
+				<h2 class="screen-heading general-settings-screen">
+					<?php esc_html_e( 'Sent Invites', 'invite-anyone' ); ?>
+				</h2>
 
-		<h4><?php esc_html_e( 'Sent Invites', 'invite-anyone' ); ?></h4>
-
-		<?php $invites = invite_anyone_get_invitations_by_inviter_id( bp_loggedin_user_id(), $sort_by, $order, $pagination->get_per_page, $pagination->get_paged ); ?>
-
-		<?php $pagination->setup_query( $invites ); ?>
-
-		<?php if ( $invites->have_posts() ) : ?>
-			<p id="sent-invites-intro"><?php esc_html_e( 'You have sent invitations to the following people.', 'invite-anyone' ); ?></p>
-
-			<div class="ia-pagination">
-				<div class="currently-viewing">
-					<?php $pagination->currently_viewing_text(); ?>
-				</div>
-
-				<div class="pag-links">
-					<?php $pagination->paginate_links(); ?>
-				</div>
-			</div>
-
-			<?php
-			$table_summary = __( 'This table displays a list of all your sent invites. Invites that have been accepted are highlighted in the listings. You may clear any individual invites, all accepted invites or all of the invites from the list.', 'invite-anyone' );
-
-			$col_email_class = 'col-email';
-			if ( 'email' === $sort_by ) {
-				$col_email_class .= ' sort-by-me';
-			}
-
-			$col_email_link = add_query_arg(
-				[
-					'sort_by' => 'email',
-					'order'   => ( 'email' === $sort_by && 'ASC' === $order ) ? 'DESC' : 'ASC',
-				],
-				$base_url
-			);
-
-			$col_date_invited_class = 'col-date-invited';
-			if ( 'date_invited' === $sort_by ) {
-				$col_date_invited_class .= ' sort-by-me';
-			}
-
-			$col_date_invited_link = add_query_arg(
-				[
-					'sort_by' => 'date_invited',
-					'order'   => ( 'date_invited' === $sort_by && 'ASC' === $order ) ? 'DESC' : 'ASC',
-				],
-				$base_url
-			);
-
-			$col_date_join_class = 'col-date-joined';
-			if ( 'date_joined' === $sort_by ) {
-				$col_date_join_class .= ' sort-by-me';
-			}
-
-			$col_date_join_link = add_query_arg(
-				[
-					'sort_by' => 'date_joined',
-					'order'   => ( 'date_joined' === $sort_by && 'ASC' === $order ) ? 'DESC' : 'ASC',
-				],
-				$base_url
-			);
-
-			?>
-
-			<table class="invite-anyone-sent-invites zebra" summary="<?php echo esc_attr( $table_summary ); ?>">
-				<thead>
-					<tr>
-						<th scope="col" class="col-delete-invite"></th>
-
-						<?php // translators: %s is the column order ?>
-						<th scope="col" class="<?php echo esc_attr( $col_email_class ); ?>"><a class="<?php echo esc_attr( $order ); ?>" title="<?php echo esc_attr( sprintf( __( 'Sort column order: %s', 'invite-anyone' ), $order ) ); ?>" href="<?php echo esc_url( $col_email_link ); ?>"><?php esc_html_e( 'Invited email address', 'invite-anyone' ); ?></a></th>
-
-						<th scope="col" class="col-group-invitations"><?php esc_html_e( 'Group invitations', 'invite-anyone' ); ?></th>
-
-						<?php // translators: %s is the column order ?>
-						<th scope="col" class="<?php echo esc_attr( $col_date_invited_class ); ?>"><a class="<?php echo esc_attr( $order ); ?>" title="<?php echo esc_attr( sprintf( __( 'Sort column order: %s', 'invite-anyone' ), $order ) ); ?>" href="<?php echo esc_url( $col_date_invited_link ); ?>"><?php esc_html_e( 'Sent', 'invite-anyone' ); ?></a></th>
-
-						<?php // translators: %s is the column order ?>
-						<th scope="col" class="<?php echo esc_attr( $col_date_join_class ); ?>"><a class="<?php echo esc_attr( $order ); ?>" title="<?php echo esc_attr( sprintf( __( 'Sort column order: %s', 'invite-anyone' ), $order ) ); ?>" href="<?php echo esc_url( $col_date_join_link ); ?>"><?php esc_html_e( 'Accepted', 'invite-anyone' ); ?></a></th>
-					</tr>
-				</thead>
-
-				<tfoot>
-				<tr id="batch-clear">
-					<td colspan="5" >
-					<ul id="invite-anyone-clear-links">
-						<li> <a title="<?php esc_attr_e( 'Clear all accepted invites from the list', 'invite-anyone' ); ?>" class="confirm" href="<?php echo esc_url( wp_nonce_url( $base_url . '?clear=accepted', 'invite_anyone_clear' ) ); ?>"><?php esc_html_e( 'Clear all accepted invitations', 'invite-anyone' ); ?></a></li>
-						<li class="last"><a title="<?php esc_attr_e( 'Clear all your listed invites', 'invite-anyone' ); ?>" class="confirm" href="<?php echo esc_url( wp_nonce_url( $base_url . '?clear=all', 'invite_anyone_clear' ) ); ?>"><?php esc_html_e( 'Clear all invitations', 'invite-anyone' ); ?></a></li>
-					</ul>
-				</td>
-				</tr>
-				</tfoot>
-
-				<tbody>
 				<?php
-				while ( $invites->have_posts() ) :
-					$invites->the_post();
-					?>
+				$paged                         = ( get_query_var( 'paged' ) ) ? get_query_var( 'paged' ) : 1;
+				$sent_invites_pagination_count = apply_filters( 'sent_invites_pagination_count', 10 );
+				$invites                       = invite_anyone_get_invitations_by_inviter_id( bp_loggedin_user_id(), $sort_by, $order, $sent_invites_pagination_count, $paged );
+				?>
 
-					<?php
-					$emails = wp_get_post_terms( get_the_ID(), invite_anyone_get_invitee_tax_name() );
-
-					// Should never happen, but was messing up my test env
-					if ( empty( $emails ) ) {
-						continue;
-					}
-
-					// Before storing taxonomy terms in the db, we replaced "+" with ".PLUSSIGN.", so we need to reverse that before displaying the email address.
-					$email = str_replace( '.PLUSSIGN.', '+', $emails[0]->name );
-
-					$post_id = get_the_ID();
-
-					$query_string = preg_replace( '|clear=[0-9]+|', '', $_SERVER['QUERY_STRING'] );
-
-					$clear_url  = ( $query_string ) ? $base_url . '?' . $query_string . '&clear=' . $post_id : $base_url . '?clear=' . $post_id;
-					$clear_url  = wp_nonce_url( $clear_url, 'invite_anyone_clear' );
-					$clear_link = '<a class="clear-entry confirm" title="' . esc_attr__( 'Clear this invitation', 'invite-anyone' ) . '" href="' . esc_url( $clear_url ) . '">x<span></span></a>';
-
-					$groups = wp_get_post_terms( get_the_ID(), invite_anyone_get_invited_groups_tax_name() );
-					if ( ! empty( $groups ) ) {
-						$group_names = '<ul>';
-						foreach ( $groups as $group_term ) {
-							$group        = new BP_Groups_Group( $group_term->name );
-							$group_names .= '<li>' . esc_html( bp_get_group_name( $group ) ) . '</li>';
+				<?php if ( $invites->have_posts() ) : ?>
+					<p class="info invite-info"><?php esc_html_e( 'You have sent invitation emails to the following people:', 'invite-anyone' ); ?></p>
+					<div class="table-responsive">
+						<!-- Clear links with BuddyBoss styling -->
+						<div class="bp-invites-actions">
+							<div class="bp-invites-clear-links">
+								<a title="<?php esc_attr_e( 'Clear all accepted invitations', 'invite-anyone' ); ?>" 
+									class="button outline small confirm" 
+									href="<?php echo esc_url( wp_nonce_url( $base_url . '?clear=accepted', 'invite_anyone_clear' ) ); ?>">
+									<?php esc_html_e( 'Clear all accepted invitations', 'invite-anyone' ); ?>
+								</a>
+								<a title="<?php esc_attr_e( 'Clear all invitations', 'invite-anyone' ); ?>" 
+									class="button outline small confirm" 
+									href="<?php echo esc_url( wp_nonce_url( $base_url . '?clear=all', 'invite_anyone_clear' ) ); ?>">
+									<?php esc_html_e( 'Clear all invitations', 'invite-anyone' ); ?>
+								</a>
+							</div>
+						</div>
+						<?php
+						$total_pages = $invites->max_num_pages;
+						if ( $total_pages > 1 ) {
+							$current_page = max( 1, get_query_var( 'paged' ) );
+							echo paginate_links(
+								array(
+									'base'      => get_pagenum_link( 1 ) . '%_%',
+									'format'    => '?paged=%#%',
+									'current'   => $current_page,
+									'total'     => $total_pages,
+									'prev_text' => __( '« Prev', 'invite-anyone' ),
+									'next_text' => __( 'Next »', 'invite-anyone' ),
+								)
+							);
 						}
-						$group_names .= '</ul>';
-					} else {
-						$group_names = '-';
-					}
 
-					global $post;
-
-					$date_invited = invite_anyone_format_date( $post->post_date );
-
-					$accepted = get_post_meta( get_the_ID(), 'bp_ia_accepted', true );
-
-					if ( $accepted ) :
-						$date_joined = invite_anyone_format_date( $accepted );
-						$accepted    = true;
-					else :
-						$date_joined = '-';
-						$accepted    = false;
-					endif;
-
-					?>
-
-					<tr
-					<?php
-					if ( $accepted ) {
+						wp_reset_postdata();
 						?>
-						class="accepted" <?php } ?>>
-						<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-						<td class="col-delete-invite"><?php echo $clear_link; ?></td>
+						<?php
+						$col_email_class = 'col-email';
+						if ( 'email' === $sort_by ) {
+							$col_email_class .= ' sort-by-me';
+						}
 
-						<td class="col-email"><?php echo esc_html( $email ); ?></td>
+						$col_email_link = add_query_arg(
+							[
+								'sort_by' => 'email',
+								'order'   => ( 'email' === $sort_by && 'ASC' === $order ) ? 'DESC' : 'ASC',
+							],
+							$base_url
+						);
 
-						<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-						<td class="col-group-invitations"><?php echo $group_names; ?></td>
-						<td class="col-date-invited"><?php echo esc_html( $date_invited ); ?></td>
-						<td class="date-joined col-date-joined"><span></span><?php echo esc_html( $date_joined ); ?></td>
-					</tr>
-				<?php endwhile ?>
-			</tbody>
-			</table>
+						$col_recipient_name_class = 'col-recipient-name';
+						if ( 'recipient_name' === $sort_by ) {
+							$col_recipient_name_class .= ' sort-by-me';
+						}
 
-			<div class="ia-pagination">
-				<div class="currently-viewing">
-					<?php $pagination->currently_viewing_text(); ?>
-				</div>
+						$col_recipient_name_link = add_query_arg(
+							[
+								'sort_by' => 'recipient_name',
+								'order'   => ( 'recipient_name' === $sort_by && 'ASC' === $order ) ? 'DESC' : 'ASC',
+							],
+							$base_url
+						);
 
-				<div class="pag-links">
-					<?php $pagination->paginate_links(); ?>
-				</div>
+						$col_date_invited_class = 'col-date-invited';
+						if ( 'date_invited' === $sort_by ) {
+							$col_date_invited_class .= ' sort-by-me';
+						}
+
+						$col_date_invited_link = add_query_arg(
+							[
+								'sort_by' => 'date_invited',
+								'order'   => ( 'date_invited' === $sort_by && 'ASC' === $order ) ? 'DESC' : 'ASC',
+							],
+							$base_url
+						);
+
+						$col_date_join_class = 'col-date-joined';
+						if ( 'date_joined' === $sort_by ) {
+							$col_date_join_class .= ' sort-by-me';
+						}
+
+						$col_date_join_link = add_query_arg(
+							[
+								'sort_by' => 'date_joined',
+								'order'   => ( 'date_joined' === $sort_by && 'ASC' === $order ) ? 'DESC' : 'ASC',
+							],
+							$base_url
+						);
+
+						?>
+
+						<table class="invite-settings bp-tables-user" id="<?php echo esc_attr( 'member-invites-table' ); ?>">
+							<thead>
+								<tr>
+									<th class="title <?php echo esc_attr( $col_recipient_name_class ); ?>">
+										<a href="<?php echo esc_url( $col_recipient_name_link ); ?>" class="<?php echo ( 'recipient_name' === $sort_by ) ? esc_attr( $order ) : ''; ?>">
+											<?php esc_html_e( 'Name', 'invite-anyone' ); ?>
+										</a>
+									</th>
+									<th class="title <?php echo esc_attr( $col_email_class ); ?>">
+										<a href="<?php echo esc_url( $col_email_link ); ?>" class="<?php echo ( 'email' === $sort_by ) ? esc_attr( $order ) : ''; ?>">
+											<?php esc_html_e( 'Email', 'invite-anyone' ); ?>
+										</a>
+									</th>
+									<th class="title <?php echo esc_attr( $col_date_invited_class ); ?>">
+										<a href="<?php echo esc_url( $col_date_invited_link ); ?>" class="<?php echo ( 'date_invited' === $sort_by ) ? esc_attr( $order ) : ''; ?>">
+											<?php esc_html_e( 'Invited', 'invite-anyone' ); ?>
+										</a>
+									</th>
+									<th class="title"><?php esc_html_e( 'Groups', 'invite-anyone' ); ?></th>
+									<th class="title <?php echo esc_attr( $col_date_join_class ); ?>">
+										<a href="<?php echo esc_url( $col_date_join_link ); ?>" class="<?php echo ( 'date_joined' === $sort_by ) ? esc_attr( $order ) : ''; ?>">
+											<?php esc_html_e( 'Status', 'invite-anyone' ); ?>
+										</a>
+									</th>
+								</tr>
+							</thead>
+
+							<tbody>
+								<?php
+								while ( $invites->have_posts() ) :
+									$invites->the_post();
+									?>
+
+									<?php
+									$emails = wp_get_post_terms( get_the_ID(), invite_anyone_get_invitee_tax_name() );
+
+									// Should never happen, but was messing up my test env
+									if ( empty( $emails ) ) {
+										continue;
+									}
+
+									// Before storing taxonomy terms in the db, we replaced "+" with ".PLUSSIGN.", so we need to reverse that before displaying the email address.
+									$email = str_replace( '.PLUSSIGN.', '+', $emails[0]->name );
+
+									$post_id = get_the_ID();
+
+									$query_string = preg_replace( '|clear=[0-9]+|', '', $_SERVER['QUERY_STRING'] );
+
+									$clear_url = ( $query_string ) ? $base_url . '?' . $query_string . '&clear=' . $post_id : $base_url . '?clear=' . $post_id;
+									$clear_url = wp_nonce_url( $clear_url, 'invite_anyone_clear' );
+									// $clear_link = '<a class="clear-entry confirm" title="' . esc_attr__( 'Clear this invitation', 'invite-anyone' ) . '" href="' . esc_url( $clear_url ) . '">x<span></span></a>';
+
+									$groups = wp_get_post_terms( get_the_ID(), invite_anyone_get_invited_groups_tax_name() );
+									if ( ! empty( $groups ) ) {
+										$group_names_array = array();
+										foreach ( $groups as $group_term ) {
+											$group = new BP_Groups_Group( $group_term->name );
+											$group_names_array[] = bp_get_group_name( $group );
+										}
+										$group_names = implode( ', ', $group_names_array );
+									} else {
+										$group_names = '-';
+									}
+
+									global $post;
+
+									$date_invited = invite_anyone_format_date( $post->post_date );
+
+									$accepted = get_post_meta( get_the_ID(), 'bp_ia_accepted', true );
+
+									if ( $accepted ) :
+										$date_joined = invite_anyone_format_date( $accepted );
+										$accepted    = true;
+									else :
+										$date_joined = '-';
+										$accepted    = false;
+									endif;
+
+									// Style the clear link similar to BuddyBoss revoke link
+									$class         = ( $accepted ) ? 'registered' : 'clear-invitation-access';
+									$title         = ( $accepted ) ? sprintf( __( 'Joined on %s', 'invite-anyone' ), $date_joined ) : __( 'Clear Invite', 'invite-anyone' );
+									$alert_message = ( $accepted ) ? sprintf( __( 'Joined on %s', 'invite-anyone' ), $date_joined ) : __( 'Are you sure you want to clear this invitation?', 'invite-anyone' );
+									$icon          = ( $accepted ) ? 'dashicons-yes' : 'dashicons-dismiss';
+
+									?>
+
+									<tr>
+										<td class="field-name">
+											<span>
+											<?php
+												// Get the recipient name from meta, fallback to email name part
+												$recipient_name = get_post_meta( get_the_ID(), 'recipient_name', true );
+											if ( ! empty( $recipient_name ) ) {
+												$name_display = $recipient_name;
+											} else {
+												// Fallback to N/A
+												$name_display = __( 'N/A', 'invite-anyone' );
+											}
+												echo esc_html( $name_display );
+											?>
+											</span>
+										</td>
+										<td class="field-email">
+											<span><?php echo esc_html( $email ); ?></span>
+										</td>
+										<td class="field-email">
+											<span><?php echo esc_html( $date_invited ); ?></span>
+										</td>
+										<td class="field-groups">
+											<span><?php echo esc_html( $group_names ); ?></span>
+										</td>
+										<td class="field-email">
+											<?php if ( $accepted ) : ?>
+												<span class="bp-invitee-status <?php echo esc_attr( $class ); ?>">
+													<span class="dashicons <?php echo esc_attr( $icon ); ?>"></span>
+													<?php echo esc_html( $title ); ?>
+												</span>
+											<?php else : ?>
+												<span class="bp-invitee-status">
+													<a data-clear-invite="<?php echo esc_url( $clear_url ); ?>" 
+														data-name="<?php echo esc_attr( $alert_message ); ?>" 
+														id="<?php echo esc_attr( $post_id ); ?>" 
+														class="<?php echo esc_attr( $class ); ?>" 
+														href="javascript:void(0);">
+														<span class="dashicons <?php echo esc_attr( $icon ); ?>"></span>
+														<?php echo esc_html( $title ); ?>
+													</a>
+												</span>
+											<?php endif; ?>
+										</td>
+									</tr>
+								<?php endwhile; ?>
+							</tbody>
+						</table>
+					</div>
+				<?php else : ?>
+					<p class="info invite-info"><?php esc_html_e( 'You haven\'t sent any invitations yet.', 'invite-anyone' ); ?></p>
+				<?php endif; ?>
 			</div>
+		</div>
+	<?php
 
+	do_action( 'bp_nouveau_member_hook', 'after', 'invites_sent_template' );
 
-		<?php else : ?>
-
-		<p id="sent-invites-intro"><?php esc_html_e( "You haven't sent any email invitations yet.", 'invite-anyone' ); ?></p>
-
-		<?php endif; ?>
+	// Add JavaScript to handle clear invite actions similar to BuddyBoss revoke functionality
+	?>
+	<script type="text/javascript">
+	jQuery(document).ready(function($) {
+		// Handle clear invite link clicks
+		$('.clear-invitation-access').on('click', function(e) {
+			e.preventDefault();
+			
+			var confirmMessage = $(this).data('name');
+			var clearUrl = $(this).data('clear-invite');
+			
+			if (confirm(confirmMessage)) {
+				window.location.href = clearUrl;
+			}
+		});
+	});
+	</script>
 	<?php
 }
 

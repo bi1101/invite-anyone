@@ -217,6 +217,15 @@ thead tr th a.ASC:after {
 	vertical-align: bottom;
 }
 
+/* BuddyBoss-style status styling */
+.bp-invitee-status.registered {
+	color: var(--bb-success-color);
+}
+
+.bp-invites-actions {
+	margin-bottom: 20px;
+}
+
 .clear-entry,
 .clear-entry span {
 	width: 18px;
