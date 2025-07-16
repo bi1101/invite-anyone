@@ -157,26 +157,37 @@ class Invite_Anyone_REST_Controller extends WP_REST_Controller {
 					'callback'            => array( $this, 'send_item' ),
 					'permission_callback' => array( $this, 'send_item_permissions_check' ),
 					'args'                => array(
-						'emails'  => array(
-							'description' => __( 'An array of email addresses to send invitations to.', 'invite-anyone' ),
+						'recipients' => array(
+							'description' => __( 'An array of recipient objects with name and email.', 'invite-anyone' ),
 							'type'        => 'array',
-							'items'       => array(
-								'type'   => 'string',
-								'format' => 'email',
-							),
 							'required'    => true,
+							'items'       => array(
+								'type'       => 'object',
+								'properties' => array(
+									'name'  => array(
+										'description' => __( 'The name of the recipient.', 'invite-anyone' ),
+										'type'        => 'string',
+									),
+									'email' => array(
+										'description' => __( 'The email address of the recipient.', 'invite-anyone' ),
+										'type'        => 'string',
+										'format'      => 'email',
+									),
+								),
+								'required'   => array( 'email' ),
+							),
 						),
-						'subject' => array(
+						'subject'    => array(
 							'description' => __( 'The subject of the invitation email.', 'invite-anyone' ),
 							'type'        => 'string',
 							'required'    => true,
 						),
-						'message' => array(
+						'message'    => array(
 							'description' => __( 'The body of the invitation email.', 'invite-anyone' ),
 							'type'        => 'string',
 							'required'    => true,
 						),
-						'groups'  => array(
+						'groups'     => array(
 							'description' => __( 'An array of group IDs to invite the user to.', 'invite-anyone' ),
 							'type'        => 'array',
 							'items'       => array(
@@ -653,7 +664,8 @@ class Invite_Anyone_REST_Controller extends WP_REST_Controller {
 	 * This method handles the creation of new invitations, including validating
 	 * the request data, checking against the max number of invites, validating
 	 * each email address, and sending the invitation emails. It integrates with
-	 * the core logic from invite_anyone_process_invitations.
+	 * the core logic from invite_anyone_process_invitations and supports
+	 * the recipients structure with names and emails.
 	 *
 	 * @since 1.5.0
 	 *
@@ -661,13 +673,39 @@ class Invite_Anyone_REST_Controller extends WP_REST_Controller {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function send_item( $request ) {
-		$emails = $request->get_param( 'emails' );
-		if ( empty( $emails ) || ! is_array( $emails ) ) {
+		$recipients = $request->get_param( 'recipients' );
+
+		// Validate recipients parameter
+		if ( empty( $recipients ) || ! is_array( $recipients ) ) {
 			return new WP_Error(
 				'rest_invalid_param',
-				__( 'Invalid parameter: emails must be a non-empty array.', 'invite-anyone' ),
+				__( 'Invalid parameter: recipients must be provided as a non-empty array.', 'invite-anyone' ),
 				array( 'status' => 400 )
 			);
+		}
+
+		// Process and validate recipients
+		$processed_recipients = array();
+		$emails               = array(); // For backwards compatibility with existing validation logic
+
+		foreach ( $recipients as $recipient ) {
+			if ( ! is_array( $recipient ) || empty( $recipient['email'] ) ) {
+				return new WP_Error(
+					'rest_invalid_param',
+					__( 'Invalid parameter: each recipient must be an object with at least an email property.', 'invite-anyone' ),
+					array( 'status' => 400 )
+				);
+			}
+
+			$email = sanitize_email( $recipient['email'] );
+			$name  = isset( $recipient['name'] ) ? sanitize_text_field( $recipient['name'] ) : '';
+
+			$processed_recipients[] = array(
+				'name'  => $name,
+				'email' => $email,
+			);
+
+			$emails[] = $email; // For backwards compatibility with existing validation logic
 		}
 
 		$subject = $request->get_param( 'subject' );
@@ -735,10 +773,13 @@ class Invite_Anyone_REST_Controller extends WP_REST_Controller {
 			'failed' => array(),
 		);
 
-		$valid_emails = array();
+		$valid_emails     = array();
+		$valid_recipients = array(); // Track both emails and names
 
 		// Validate email addresses.
-		foreach ( $emails as $email ) {
+		foreach ( $processed_recipients as $recipient ) {
+			$email = $recipient['email'];
+			$name  = $recipient['name'];
 			$check = invite_anyone_validate_email( $email );
 
 			switch ( $check ) {
@@ -778,7 +819,8 @@ class Invite_Anyone_REST_Controller extends WP_REST_Controller {
 					break;
 
 				case 'okay':
-					$valid_emails[] = $email;
+					$valid_emails[]     = $email;
+					$valid_recipients[] = $recipient;
 					break;
 
 				default:
@@ -791,10 +833,16 @@ class Invite_Anyone_REST_Controller extends WP_REST_Controller {
 		}
 
 		// Send invitations to valid emails.
-		if ( ! empty( $valid_emails ) ) {
+		if ( ! empty( $valid_recipients ) ) {
 			$do_bp_email = true === function_exists( 'bp_send_email' ) && true === ! apply_filters( 'bp_email_use_wp_mail', false );
 
-			foreach ( $valid_emails as $email ) {
+			foreach ( $valid_recipients as $recipient ) {
+				$email = $recipient['email'];
+				$name  = $recipient['name'];
+
+				// Store the recipient name temporarily for the salutation function
+				global $invite_anyone_current_recipient_name;
+				$invite_anyone_current_recipient_name = $name;
 				// Prepare message and subject with wildcard replacement.
 				$processed_subject = invite_anyone_wildcard_replace( $subject, $email );
 				$processed_message = invite_anyone_wildcard_replace( $message, $email );
@@ -874,6 +922,9 @@ class Invite_Anyone_REST_Controller extends WP_REST_Controller {
 						'reason' => __( 'Failed to send invitation email.', 'invite-anyone' ),
 					);
 				}
+
+				// Clear the recipient name for the next email
+				$invite_anyone_current_recipient_name = '';
 			}
 
 			// Fire action hook for all sent invitations.
@@ -1116,7 +1167,7 @@ class Invite_Anyone_REST_Controller extends WP_REST_Controller {
 			'title'      => 'send-invitation',
 			'type'       => 'object',
 			'properties' => array(
-				'sent'    => array(
+				'sent'   => array(
 					'description' => __( 'Array of successfully sent invitations.', 'invite-anyone' ),
 					'type'        => 'array',
 					'items'       => array(
@@ -1136,7 +1187,7 @@ class Invite_Anyone_REST_Controller extends WP_REST_Controller {
 					'context'     => array( 'view' ),
 					'readonly'    => true,
 				),
-				'failed'  => array(
+				'failed' => array(
 					'description' => __( 'Array of failed invitation attempts.', 'invite-anyone' ),
 					'type'        => 'array',
 					'items'       => array(

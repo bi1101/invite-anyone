@@ -2029,7 +2029,14 @@ function invite_anyone_process_invitations( $data ) {
 
 		$do_bp_email = true === function_exists( 'bp_send_email' ) && true === ! apply_filters( 'bp_email_use_wp_mail', false );
 
-		foreach ( $emails as $email ) {
+		foreach ( $emails as $key => $email ) {
+			// Get the corresponding name for this email
+			$recipient_name = isset( $names[ $key ] ) ? $names[ $key ] : '';
+			
+			// Store the recipient name temporarily for the salutation function
+			global $invite_anyone_current_recipient_name;
+			$invite_anyone_current_recipient_name = $recipient_name;
+			
 			$subject = stripslashes( wp_strip_all_tags( $data['invite_anyone_custom_subject'] ) );
 
 			if ( $do_bp_email ) {
@@ -2110,6 +2117,9 @@ function invite_anyone_process_invitations( $data ) {
 				wp_mail( $to, $subject, $message );
 			}
 
+			// Clear the recipient name for the next email
+			$invite_anyone_current_recipient_name = '';
+
 			// Determine whether this address came from CloudSponge
 			$is_cloudsponge = isset( $cs_emails ) && in_array( $email, $cs_emails, true );
 
@@ -2164,7 +2174,19 @@ function invite_anyone_replace_bp_email_salutation( $salutation, $settings ) {
 	 * @param string $salutation    Salutation from BP.
 	 * @param array  $settings      Email settings.
 	 */
-	return apply_filters( 'invite_anyone_replace_bp_email_salutation', _x( 'Hello,', 'Invite Anyone email salutation', 'invite-anyone' ), $salutation, $settings );
+	
+	// Check if we have a recipient name for this email
+	global $invite_anyone_current_recipient_name;
+	
+	if ( ! empty( $invite_anyone_current_recipient_name ) ) {
+		// Use the recipient name for salutation
+		$ia_salutation = sprintf( __( 'Hello, %s', 'invite-anyone' ), $invite_anyone_current_recipient_name );
+	} else {
+		// Use the default salutation
+		$ia_salutation = _x( 'Hello,', 'Invite Anyone email salutation', 'invite-anyone' );
+	}
+	
+	return apply_filters( 'invite_anyone_replace_bp_email_salutation', $ia_salutation, $salutation, $settings );
 }
 
 /**
