@@ -286,18 +286,20 @@ function invite_anyone_register_screen_message() {
 
 	?>
 	<?php if ( empty( $email ) ) : ?>
-		<div id="message" class="error"><p><?php esc_html_e( "It looks like you're trying to accept an invitation to join the site, but some information is missing. Please try again by clicking on the link in the invitation email.", 'invite-anyone' ); ?></p></div>
+		<aside class="bp-feedback bp-messages bp-template-notice error">
+			<span class="bp-icon" aria-hidden="true"></span>
+			<p><?php _e( "It looks like you're trying to accept an invitation to join the site, but some information is missing. Please try again by clicking on the link in the invitation email.", 'invite-anyone' ); ?></p>
+		</aside>
 	<?php endif; ?>
 
-	<?php if ( 'request-details' === $bp->signup->step && ! empty( $email ) ) : ?>
+	<?php if ( $bp->signup->step == 'request-details' && ! empty( $email ) ) : ?>
 
 		<?php do_action( 'accept_email_invite_before' ); ?>
 
-		<script type="text/javascript">
-		jQuery(document).ready( function() {
-			jQuery("input#signup_email").val("<?php echo esc_js( str_replace( ' ', '+', $email ) ); ?>");
-		});
-
+		<script>
+			jQuery(document).ready( function() {
+				jQuery("input#signup_email").val("<?php echo esc_js( str_replace( ' ', '+', $email ) ); ?>");
+			});
 		</script>
 
 
@@ -320,21 +322,10 @@ function invite_anyone_register_screen_message() {
 		}
 
 		if ( ! empty( $inviters_names ) ) {
-			$message = sprintf(
-				// translators: %s is a comma-separated list of user names
-				_n(
-					'Welcome! You&#8217;ve been invited to join the site by the following user: %s. Please fill out the information below to create your account.',
-					'Welcome! You&#8217;ve been invited to join the site by the following users: %s. Please fill out the information below to create your account.',
-					count( $inviters_names ),
-					'invite-anyone'
-				),
-				implode( ', ', $inviters_names )
-			);
-		} else {
-			$message = __( 'Welcome! You&#8217;ve been invited to join the site. Please fill out the information below to create your account.', 'invite-anyone' );
-		}
+			$message = sprintf( _n( 'Welcome! You\'ve been invited to join the site by the following user: %s. Please fill out the information below to create your account.', 'Welcome! You\'ve been invited to join the site by the following users: %s. Please fill out the information below to create your account.', count( $inviters_names ), 'invite-anyone' ), implode( ', ', $inviters_names ) );
 
-		echo '<div id="message" class="success"><p>' . esc_html( $message ) . '</p></div>';
+			echo '<aside class="bp-feedback bp-messages info"><span class="bp-icon" aria-hidden="true"></span><p>' . esc_html( $message ) . '</p></aside>';
+		}
 
 		?>
 
@@ -2032,11 +2023,11 @@ function invite_anyone_process_invitations( $data ) {
 		foreach ( $emails as $key => $email ) {
 			// Get the corresponding name for this email
 			$recipient_name = isset( $names[ $key ] ) ? $names[ $key ] : '';
-			
+
 			// Store the recipient name temporarily for the salutation function
 			global $invite_anyone_current_recipient_name;
 			$invite_anyone_current_recipient_name = $recipient_name;
-			
+
 			$subject = stripslashes( wp_strip_all_tags( $data['invite_anyone_custom_subject'] ) );
 
 			if ( $do_bp_email ) {
@@ -2174,10 +2165,10 @@ function invite_anyone_replace_bp_email_salutation( $salutation, $settings ) {
 	 * @param string $salutation    Salutation from BP.
 	 * @param array  $settings      Email settings.
 	 */
-	
+
 	// Check if we have a recipient name for this email
 	global $invite_anyone_current_recipient_name;
-	
+
 	if ( ! empty( $invite_anyone_current_recipient_name ) ) {
 		// Use the recipient name for salutation
 		$ia_salutation = sprintf( __( 'Hello, %s', 'invite-anyone' ), $invite_anyone_current_recipient_name );
@@ -2185,7 +2176,7 @@ function invite_anyone_replace_bp_email_salutation( $salutation, $settings ) {
 		// Use the default salutation
 		$ia_salutation = _x( 'Hello,', 'Invite Anyone email salutation', 'invite-anyone' );
 	}
-	
+
 	return apply_filters( 'invite_anyone_replace_bp_email_salutation', $ia_salutation, $salutation, $settings );
 }
 
