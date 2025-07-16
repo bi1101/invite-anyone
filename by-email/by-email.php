@@ -1,5 +1,15 @@
 <?php
 
+/**
+ * Invite Anyone By Email functionality.
+ *
+ * Enhanced to support group-specific invitations:
+ * - The invite_anyone_invitation_subject and invite_anyone_invitation_message filters
+ *   now receive an optional group_id parameter to replace $site_name and $blogname
+ *   placeholders with group names when inviting to specific groups.
+ * - New %%GROUPNAME%% placeholder available for custom templates.
+ */
+
 require BP_INVITE_ANYONE_DIR . 'by-email/by-email-db.php';
 require BP_INVITE_ANYONE_DIR . 'widgets/widgets.php';
 require BP_INVITE_ANYONE_DIR . 'by-email/cloudsponge-integration.php';
@@ -935,11 +945,11 @@ function invite_anyone_screen_one_content() {
 		<li>
 			<?php if ( 'yes' === $iaoptions['subject_is_customizable'] ) : ?>
 				<label for="invite-anyone-custom-subject"><?php esc_html_e( '(optional) Customize the subject line of the invitation email.', 'invite-anyone' ); ?></label>
-					<textarea name="invite_anyone_custom_subject" id="invite-anyone-custom-subject" rows="15" cols="10" ><?php echo esc_textarea( invite_anyone_invitation_subject( $returned_subject ) ); ?></textarea>
+					<textarea name="invite_anyone_custom_subject" id="invite-anyone-custom-subject" rows="15" cols="10" ><?php echo esc_textarea( invite_anyone_invitation_subject( $returned_subject, $from_group ) ); ?></textarea>
 			<?php else : ?>
-				<strong><?php esc_html_e( 'Subject:', 'invite-anyone' ); ?></strong> <?php echo esc_html( invite_anyone_invitation_subject( $returned_subject ) ); ?>
+				<strong><?php esc_html_e( 'Subject:', 'invite-anyone' ); ?></strong> <?php echo esc_html( invite_anyone_invitation_subject( $returned_subject, $from_group ) ); ?>
 
-				<input type="hidden" id="invite-anyone-customised-subject" name="invite_anyone_custom_subject" value="<?php echo esc_attr( invite_anyone_invitation_subject() ); ?>" />
+				<input type="hidden" id="invite-anyone-customised-subject" name="invite_anyone_custom_subject" value="<?php echo esc_attr( invite_anyone_invitation_subject( false, $from_group ) ); ?>" />
 			<?php endif; ?>
 		</li>
 
@@ -947,12 +957,12 @@ function invite_anyone_screen_one_content() {
 			<?php if ( 'yes' === $iaoptions['message_is_customizable'] ) : ?>
 				<label for="invite-anyone-custom-message"><?php esc_html_e( '(optional) Customize the text of the invitation.', 'invite-anyone' ); ?></label>
 				<p class="description"><?php esc_html_e( 'The message will also contain a custom footer containing links to accept the invitation or opt out of further email invitations from this site.', 'invite-anyone' ); ?></p>
-					<textarea name="invite_anyone_custom_message" id="invite-anyone-custom-message" cols="40" rows="10"><?php echo esc_textarea( invite_anyone_invitation_message( $returned_message ) ); ?></textarea>
+					<textarea name="invite_anyone_custom_message" id="invite-anyone-custom-message" cols="40" rows="10"><?php echo esc_textarea( invite_anyone_invitation_message( $returned_message, $from_group ) ); ?></textarea>
 			<?php else : ?>
 				<label for="invite-anyone-custom-message"><?php esc_html_e( 'Message:', 'invite-anyone' ); ?></label>
-					<textarea name="invite_anyone_custom_message" id="invite-anyone-custom-message" disabled="disabled"><?php echo esc_textarea( invite_anyone_invitation_message( $returned_message ) ); ?></textarea>
+					<textarea name="invite_anyone_custom_message" id="invite-anyone-custom-message" disabled="disabled"><?php echo esc_textarea( invite_anyone_invitation_message( $returned_message, $from_group ) ); ?></textarea>
 
-				<input type="hidden" name="invite_anyone_custom_message" value="<?php echo esc_attr( invite_anyone_invitation_message() ); ?>" />
+				<input type="hidden" name="invite_anyone_custom_message" value="<?php echo esc_attr( invite_anyone_invitation_message( false, $from_group ) ); ?>" />
 			<?php endif; ?>
 
 		</li>
@@ -1321,14 +1331,23 @@ function invite_anyone_get_user_sent_invites_url( $user_id ) {
  * @global object $bp BuddyPress global object.
  *
  * @param string|false $returned_message Optional. Previously returned message for re-display.
+ * @param int|false    $group_id         Optional. Group ID to use for group name replacement.
  *
  * @return string The invitation subject line.
  */
-function invite_anyone_invitation_subject( $returned_message = false ) {
+function invite_anyone_invitation_subject( $returned_message = false, $group_id = false ) {
 	global $bp;
 
 	if ( ! $returned_message ) {
 		$site_name = get_bloginfo( 'name' );
+
+		// If group_id is provided, use group name instead of site name.
+		if ( $group_id && function_exists( 'groups_get_group' ) ) {
+			$group = groups_get_group( $group_id );
+			if ( $group && ! empty( $group->name ) ) {
+				$site_name = $group->name;
+			}
+		}
 
 		$iaoptions = invite_anyone_options();
 
@@ -1340,7 +1359,7 @@ function invite_anyone_invitation_subject( $returned_message = false ) {
 		}
 
 		if ( ! is_admin() ) {
-			$text = invite_anyone_wildcard_replace( $text );
+			$text = invite_anyone_wildcard_replace( $text, false, $group_id );
 		}
 	} else {
 		$text = $returned_message;
@@ -1361,15 +1380,24 @@ function invite_anyone_invitation_subject( $returned_message = false ) {
  * @global object $bp BuddyPress global object.
  *
  * @param string|false $returned_message Optional. Previously returned message for re-display.
+ * @param int|false    $group_id         Optional. Group ID to use for group name replacement.
  *
  * @return string The invitation message content.
  */
-function invite_anyone_invitation_message( $returned_message = false ) {
+function invite_anyone_invitation_message( $returned_message = false, $group_id = false ) {
 	global $bp;
 
 	if ( ! $returned_message ) {
 		$inviter_name = bp_core_get_user_displayname( bp_loggedin_user_id() );
 		$blogname     = get_bloginfo( 'name' );
+
+		// If group_id is provided, use group name instead of blog name.
+		if ( $group_id && function_exists( 'groups_get_group' ) ) {
+			$group = groups_get_group( $group_id );
+			if ( $group && ! empty( $group->name ) ) {
+				$blogname = $group->name;
+			}
+		}
 
 		$iaoptions = invite_anyone_options();
 
@@ -1389,7 +1417,7 @@ Visit %%INVITERNAME%%\'s profile at %%INVITERURL%%.',
 		}
 
 		if ( ! is_admin() ) {
-			$text = invite_anyone_wildcard_replace( $text );
+			$text = invite_anyone_wildcard_replace( $text, false, $group_id );
 		}
 	} else {
 		$text = $returned_message;
@@ -1490,21 +1518,40 @@ function invite_anyone_get_opt_out_url( $email ) {
  * messages and subjects with actual values like inviter name, site name,
  * and URLs for accepting invitations or opting out.
  *
+ * Available placeholders:
+ * - %%INVITERNAME%% / %INVITERNAME% - Name of the person sending the invitation
+ * - %%INVITERURL%% / %INVITERURL% - URL to the inviter's profile
+ * - %%SITENAME%% / %SITENAME% - Site name or group name if group_id is provided
+ * - %%GROUPNAME%% / %GROUPNAME% - Group name if group_id is provided, otherwise site name
+ * - %%ACCEPTURL%% / %ACCEPTURL% - URL to accept the invitation
+ * - %%OPTOUTURL%% / %OPTOUTURL% - URL to opt out of future invitations
+ *
  * @since 1.0.0
  *
  * @global object $bp BuddyPress global object.
  *
- * @param string      $text  The text containing wildcard placeholders.
- * @param string|false $email Optional. The email address for URL generation.
+ * @param string      $text     The text containing wildcard placeholders.
+ * @param string|false $email    Optional. The email address for URL generation.
+ * @param int|false    $group_id Optional. Group ID to use for group name replacement.
  *
  * @return string The text with wildcards replaced with actual values.
  */
-function invite_anyone_wildcard_replace( $text, $email = false ) {
+function invite_anyone_wildcard_replace( $text, $email = false, $group_id = false ) {
 	global $bp;
 
 	$inviter_name = bp_core_get_user_displayname( bp_loggedin_user_id() );
 	$site_name    = get_bloginfo( 'name' );
 	$inviter_url  = bp_loggedin_user_url();
+	$group_name   = $site_name; // Default to site name.
+
+	// If group_id is provided, use group name for site name and group name replacements.
+	if ( $group_id && function_exists( 'groups_get_group' ) ) {
+		$group = groups_get_group( $group_id );
+		if ( $group && ! empty( $group->name ) ) {
+			$site_name  = $group->name;
+			$group_name = $group->name;
+		}
+	}
 
 	$email = rawurlencode( $email );
 
@@ -1514,6 +1561,7 @@ function invite_anyone_wildcard_replace( $text, $email = false ) {
 	$text = str_replace( '%%INVITERNAME%%', $inviter_name, $text );
 	$text = str_replace( '%%INVITERURL%%', $inviter_url, $text );
 	$text = str_replace( '%%SITENAME%%', $site_name, $text );
+	$text = str_replace( '%%GROUPNAME%%', $group_name, $text );
 	$text = str_replace( '%%OPTOUTURL%%', $opt_out_link, $text );
 	$text = str_replace( '%%ACCEPTURL%%', $accept_link, $text );
 
@@ -1521,6 +1569,7 @@ function invite_anyone_wildcard_replace( $text, $email = false ) {
 	$text = str_replace( '%INVITERNAME%', $inviter_name, $text );
 	$text = str_replace( '%INVITERURL%', $inviter_url, $text );
 	$text = str_replace( '%SITENAME%', $site_name, $text );
+	$text = str_replace( '%GROUPNAME%', $group_name, $text );
 	$text = str_replace( '%OPTOUTURL%', $opt_out_link, $text );
 	$text = str_replace( '%ACCEPTURL%', $accept_link, $text );
 
@@ -1699,16 +1748,20 @@ function invite_anyone_process_invitations( $data ) {
 		'groups'        => isset( $data['invite_anyone_groups'] ) ? $data['invite_anyone_groups'] : '',
 	);
 
+	// Get the first group ID for group name replacement in default messages.
+	$groups   = isset( $data['invite_anyone_groups'] ) ? $data['invite_anyone_groups'] : array();
+	$group_id = ! empty( $groups ) && is_array( $groups ) ? (int) $groups[0] : false;
+
 	if ( 'yes' === $options['subject_is_customizable'] ) {
 		$data['invite_anyone_custom_subject'] = $data['invite_anyone_custom_subject'];
 	} else {
-		$data['invite_anyone_custom_subject'] = invite_anyone_invitation_subject();
+		$data['invite_anyone_custom_subject'] = invite_anyone_invitation_subject( false, $group_id );
 	}
 
 	if ( 'yes' === $options['message_is_customizable'] ) {
 		$data['invite_anyone_custom_message'] = $data['invite_anyone_custom_message'];
 	} else {
-		$data['invite_anyone_custom_message'] = invite_anyone_invitation_message();
+		$data['invite_anyone_custom_message'] = invite_anyone_invitation_message( false, $group_id );
 	}
 
 	$returned_data['subject'] = $data['invite_anyone_custom_subject'];
@@ -1840,8 +1893,11 @@ function invite_anyone_process_invitations( $data ) {
 				$custom_message = stripslashes( wp_strip_all_tags( $data['invite_anyone_custom_message'] ) );
 			}
 
+			// Get the first group ID for group name replacement in placeholders.
+			$group_id = ! empty( $groups ) && is_array( $groups ) ? (int) $groups[0] : false;
+
 			$footer = invite_anyone_process_footer( $email );
-			$footer = invite_anyone_wildcard_replace( $footer, $email );
+			$footer = invite_anyone_wildcard_replace( $footer, $email, $group_id );
 
 			$message  = $custom_message . '
 
@@ -1867,8 +1923,9 @@ function invite_anyone_process_invitations( $data ) {
 			 * @param string $subject The email subject.
 			 * @param array  $data    Data about the information.
 			 * @param string $email   Email address of the invited user.
+			 * @param int    $group_id Optional. Group ID for group name replacement.
 			 */
-			$subject = apply_filters( 'invite_anyone_invitation_subject', $subject, $data, $email );
+			$subject = apply_filters( 'invite_anyone_invitation_subject', $subject, $data, $email, $group_id );
 
 			/**
 			 * Filters the contents of an outgoing plaintext email.
@@ -1878,8 +1935,9 @@ function invite_anyone_process_invitations( $data ) {
 			 * @param string $message The email message.
 			 * @param array  $data    Data about the information.
 			 * @param string $email   Email address of the invited user.
+			 * @param int    $group_id Optional. Group ID for group name replacement.
 			 */
-			$message = apply_filters( 'invite_anyone_invitation_message', $message, $data, $email );
+			$message = apply_filters( 'invite_anyone_invitation_message', $message, $data, $email, $group_id );
 
 			// BP 2.5+
 			if ( $do_bp_email ) {
