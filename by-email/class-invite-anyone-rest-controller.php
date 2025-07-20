@@ -191,7 +191,7 @@ class Invite_Anyone_REST_Controller extends WP_REST_Controller {
 							'description' => __( 'An array of group IDs to invite the user to.', 'invite-anyone' ),
 							'type'        => 'array',
 							'items'       => array(
-								'type' => 'integer',
+								'type' => 'string',
 							),
 						),
 					),
