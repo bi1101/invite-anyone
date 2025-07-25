@@ -43,6 +43,9 @@ function invite_anyone_init() {
 
 	require BP_INVITE_ANYONE_DIR . 'by-email/by-email.php';
 
+	// Initialize the invite link module.
+	require BP_INVITE_ANYONE_DIR . 'invite-link/invite-link.php';
+
 	if ( is_admin() ) {
 		require BP_INVITE_ANYONE_DIR . 'admin/admin-panel.php';
 	}
