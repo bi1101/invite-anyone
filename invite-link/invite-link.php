@@ -14,6 +14,9 @@
 
 // Include the main class.
 require_once BP_INVITE_ANYONE_DIR . 'invite-link/class-invite-anyone-link.php';
+require_once BP_INVITE_ANYONE_DIR . 'invite-link/class-invite-anyone-link-rest-controller.php';
 
 // Initialize the invite link functionality.
 new Invite_Anyone_Link();
+// Initialize REST controller for group invite links.
+new Invite_Anyone_Link_REST_Controller();
