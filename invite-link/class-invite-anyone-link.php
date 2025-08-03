@@ -40,6 +40,8 @@ class Invite_Anyone_Link {
 
 		// AJAX handler for creating invite page.
 		add_action( 'wp_ajax_create_group_invite_page', array( $this, 'ajax_create_group_invite_page' ) );
+
+		add_action( 'rest_api_init', array( __CLASS__, 'register_rest_group_invite_link_field' ) ); // Register REST field on API init.
 	}
 
 	/**
@@ -661,6 +663,36 @@ class Invite_Anyone_Link {
 			array(
 				'page_id'    => $page_id,
 				'page_title' => get_the_title( $page_id ),
+			)
+		);
+	}
+
+	/**
+	 * Registers the custom REST API field for group invite link.
+	 *
+	 * @since 1.5.1
+	 */
+	public static function register_rest_group_invite_link_field() {
+		// Register a new REST field for BuddyBoss groups.
+		register_rest_field(
+			'bp_groups',
+			'invite_link', // Field name in the response.
+			array(
+				'get_callback'    => function ( $object ) {
+					// $object['id'] is the group ID.
+					$invite_url = '';
+					if ( class_exists( 'Invite_Anyone_Link' ) ) {
+						$invite = new Invite_Anyone_Link();
+						$invite_url = $invite->get_group_invite_url( $object['id'] );
+					}
+					return $invite_url;
+				},
+				'update_callback' => null,
+				'schema'          => array(
+					'description' => __( 'Group invite link URL.', 'invite-anyone' ),
+					'type'        => 'string',
+					'context'     => array( 'view', 'edit', 'embed' ),
+				),
 			)
 		);
 	}
