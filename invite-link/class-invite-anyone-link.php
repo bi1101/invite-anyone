@@ -1,4 +1,13 @@
 <?php
+/**
+ * Invite Anyone Link Module
+ *
+ * This file contains the Invite_Anyone_Link class which handles the creation
+ * and management of invitation links for BuddyPress groups.
+ *
+ * @package Invite Anyone
+ * @since 1.5.0
+ */
 
 /**
  * Main class for Invite Anyone Link module.
@@ -78,7 +87,7 @@ class Invite_Anyone_Link {
 			$page = get_post( $invite_page_id );
 			if ( $page ) {
 				$page_slug = $page->post_name;
-				// Add rewrite rule for custom page with token: page-slug/{token}/
+				// Add rewrite rule for custom page with token: page-slug/{token}/.
 				add_rewrite_rule( '^' . $page_slug . '/([^/]+)/?$', 'index.php?pagename=' . $page_slug . '&group_invite_token=$matches[1]', 'top' );
 			}
 		}
@@ -109,7 +118,7 @@ class Invite_Anyone_Link {
 
 		// Also check for token in URL query parameters (for custom pages).
 		if ( ! $invite_token && isset( $_GET['group_invite_token'] ) ) {
-			$invite_token = sanitize_text_field( $_GET['group_invite_token'] );
+			$invite_token = sanitize_text_field( wp_unslash( $_GET['group_invite_token'] ) );
 		}
 
 		if ( ! $invite_token ) {
@@ -163,9 +172,12 @@ class Invite_Anyone_Link {
 		global $wpdb;
 		$bp = buddypress();
 
-		$table_name = $bp->groups->table_name_groupmeta;
-		$sql        = $wpdb->prepare( "SELECT group_id FROM {$table_name} WHERE meta_key = 'invite_link_token' AND meta_value = %s", $token );
-		$group_id   = $wpdb->get_var( $sql );
+		$group_id = $wpdb->get_var(
+			$wpdb->prepare(
+				sprintf( "SELECT group_id FROM %s WHERE meta_key = 'invite_link_token' AND meta_value = %%s", esc_sql( $bp->groups->table_name_groupmeta ) ),
+				$token
+			)
+		);
 
 		return $group_id;
 	}
@@ -175,13 +187,13 @@ class Invite_Anyone_Link {
 	 *
 	 * @since 1.5.0
 	 *
-	 * @param string $user_login The user's login username.
+	 * @param string  $user_login The user's login username.
 	 * @param WP_User $user The user object.
 	 * @return void
 	 */
 	public function redirect_after_successful_login( $user_login, $user ) {
 		if ( isset( $_COOKIE['bb_group_invite_token'] ) ) {
-			$token = $_COOKIE['bb_group_invite_token'];
+			$token = sanitize_text_field( wp_unslash( $_COOKIE['bb_group_invite_token'] ) );
 			// Unset the cookie.
 			setcookie( 'bb_group_invite_token', '', time() - 3600, COOKIEPATH, COOKIE_DOMAIN );
 
@@ -214,7 +226,7 @@ class Invite_Anyone_Link {
 	 */
 	public function store_invite_token_for_new_user( $user_id, $user_login, $user_password, $user_email, $usermeta ) {
 		if ( isset( $_COOKIE['bb_group_invite_token'] ) ) {
-			$token = $_COOKIE['bb_group_invite_token'];
+			$token = sanitize_text_field( wp_unslash( $_COOKIE['bb_group_invite_token'] ) );
 			update_user_meta( $user_id, 'pending_group_invite_token', $token );
 		}
 	}
@@ -297,10 +309,14 @@ class Invite_Anyone_Link {
 		get_header();
 		?>
 		<div style="min-height: 600px; display: flex; align-items: center; justify-content: center;">
-			<main id="main" class="site-main">
+						echo wp_kses_post( sprintf( /* translators: %s: group name */ __( 'You have been invited to join: %s', 'invite-anyone' ), esc_html( $group->name ) ) );
 				<div>
 					<div>
-						<h1><?php printf( __( 'You have been invited to join: %s', 'invite-anyone' ), esc_html( $group->name ) ); ?></h1>
+						<h1>
+						<?php
+						echo wp_kses_post( sprintf( /* translators: %s: group name */ __( 'You have been invited to join: %s', 'invite-anyone' ), esc_html( $group->name ) ) );
+						?>
+						</h1>
 						<?php if ( ! empty( $group->description ) ) : ?>
 							<div>
 								<p><?php echo esc_html( $group->description ); ?></p>
@@ -309,19 +325,23 @@ class Invite_Anyone_Link {
 					</div>
 
 					<div style="margin-top: 30px;">
-						<a href="<?php echo wp_nonce_url( admin_url( 'admin-post.php?action=accept_group_invite&group_id=' . $group_id ), 'accept_group_invite_' . $group_id ); ?>"
+						<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=accept_group_invite&group_id=' . $group_id ), 'accept_group_invite_' . $group_id ) ); ?>"
 							class="button button-primary"
 							style="margin-right: 10px;">
-							<?php _e( 'Accept Invitation', 'invite-anyone' ); ?>
+							<?php esc_html_e( 'Accept Invitation', 'invite-anyone' ); ?>
 						</a>
-						<a href="<?php echo wp_nonce_url( admin_url( 'admin-post.php?action=reject_group_invite' ), 'reject_group_invite' ); ?>"
+						<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=reject_group_invite' ), 'reject_group_invite' ) ); ?>"
 							class="error">
-							<?php _e( 'Decline Invitation', 'invite-anyone' ); ?>
+							<?php esc_html_e( 'Decline Invitation', 'invite-anyone' ); ?>
 						</a>
 					</div>
 
 					<div style="margin-top: 30px;">
-						<p><?php printf( __( 'By accepting this invitation, you will become a member of %s.', 'invite-anyone' ), esc_html( $group->name ) ); ?></p>
+						<p>
+						<?php
+						echo wp_kses_post( sprintf( /* translators: %s: group name */ __( 'By accepting this invitation, you will become a member of %s.', 'invite-anyone' ), esc_html( $group->name ) ) );
+						?>
+						</p>
 					</div>
 				</div>
 			</main>
@@ -336,11 +356,13 @@ class Invite_Anyone_Link {
 	 * @since 1.5.0
 	 */
 	public function handle_accept_invite() {
-		if ( ! isset( $_GET['group_id'] ) || ! wp_verify_nonce( $_GET['_wpnonce'], 'accept_group_invite_' . $_GET['group_id'] ) ) {
+		$nonce        = isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : '';
+		$group_id_raw = isset( $_GET['group_id'] ) ? sanitize_text_field( wp_unslash( $_GET['group_id'] ) ) : '';
+		if ( ! $nonce || ! $group_id_raw || ! wp_verify_nonce( $nonce, 'accept_group_invite_' . $group_id_raw ) ) {
 			wp_die( 'Invalid request' );
 		}
 
-		$group_id = intval( $_GET['group_id'] );
+		$group_id = intval( $group_id_raw );
 		$user_id  = get_current_user_id();
 
 		if ( groups_join_group( $group_id, $user_id ) ) {
@@ -367,7 +389,8 @@ class Invite_Anyone_Link {
 	 * @since 1.5.0
 	 */
 	public function handle_reject_invite() {
-		if ( ! wp_verify_nonce( $_GET['_wpnonce'], 'reject_group_invite' ) ) {
+		$nonce = isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : '';
+		if ( ! $nonce || ! wp_verify_nonce( $nonce, 'reject_group_invite' ) ) {
 			wp_die( 'Invalid request' );
 		}
 
@@ -491,7 +514,7 @@ class Invite_Anyone_Link {
 			return;
 		}
 
-		$token = $_COOKIE['bb_group_invite_token'];
+		$token = sanitize_text_field( wp_unslash( $_COOKIE['bb_group_invite_token'] ) );
 
 		// Validate the token and get group information.
 		$validation_result = $this->validate_invite_token( $token );
@@ -507,10 +530,7 @@ class Invite_Anyone_Link {
 			<span class="bp-icon" aria-hidden="true"></span>
 			<p>
 			<?php
-				printf(
-					__( 'Welcome! You have been invited to join "%s". Create an account or login to join', 'invite-anyone' ),
-					esc_html( $group->name )
-				);
+				echo esc_html( sprintf( /* translators: %s: group name */ __( 'Welcome! You have been invited to join "%s". Create an account or login to join', 'invite-anyone' ), $group->name ) );
 			?>
 				</p>
 		</aside>
@@ -608,7 +628,7 @@ class Invite_Anyone_Link {
 					type: 'POST',
 					data: {
 						action: 'create_group_invite_page',
-						nonce: '<?php echo wp_create_nonce( 'create_invite_page' ); ?>'
+						nonce: '<?php echo esc_js( wp_create_nonce( 'create_invite_page' ) ); ?>'
 					},
 					success: function(response) {
 						if (response.success) {
@@ -640,7 +660,8 @@ class Invite_Anyone_Link {
 	 */
 	public function ajax_create_group_invite_page() {
 		// Verify nonce.
-		if ( ! wp_verify_nonce( $_POST['nonce'], 'create_invite_page' ) ) {
+		$nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
+		if ( ! $nonce || ! wp_verify_nonce( $nonce, 'create_invite_page' ) ) {
 			wp_die( 'Security check failed.' );
 		}
 
