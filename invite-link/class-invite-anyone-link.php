@@ -139,9 +139,16 @@ class Invite_Anyone_Link {
 
 			// Check if user is already a member.
 			if ( groups_is_user_member( $user_id, $group_id ) ) {
-				// Redirect to the group page with a notice.
+				// Redirect to Student Dashboard classes manage page if configured, else fallback to group permalink.
 				bp_core_add_message( __( 'You are already a member of this group.', 'invite-anyone' ), 'info' );
-				wp_redirect( bp_get_group_permalink( groups_get_group( $group_id ) ) );
+				$ielts_pages = get_option( 'ielts_science_lms_pages', array() ); // Get IELTS LMS page settings.
+				if ( isset( $ielts_pages['student_dashboard'] ) ) {
+					$student_page_id = (int) $ielts_pages['student_dashboard'];
+					$target_url      = trailingslashit( get_permalink( $student_page_id ) ) . 'classes/manage/' . $group_id; // Ensure single slash between segments.
+					wp_redirect( esc_url_raw( $target_url ) );
+				} else {
+					wp_redirect( bp_get_group_permalink( groups_get_group( $group_id ) ) ); // Fallback to group permalink.
+				}
 				exit;
 			}
 
